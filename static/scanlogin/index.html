@@ -21,10 +21,10 @@
 </head>
 <body>
   <h1>扫码登录</h1>
-  <p class="hint">与当前站点同源时，「API 根地址」可留空。Swagger 文档在 <a href="/swagger/">/swagger/</a>。</p>
+  <p class="hint">若在<b>独立端口</b>打开本页，会自动请求 <code>/env.json</code> 并填写「API 根地址」指向主服务。Swagger：<a id="swaggerLink" href="/swagger/">主服务 /swagger/</a>。</p>
 
-  <label>API 根地址（可选，默认本页域名）</label>
-  <input id="apiBase" type="text" placeholder="留空 = 当前站点，如 https://你的域名:8062" />
+  <label>API 根地址（独立端口打开时会自动填；与主服务同端口时可留空）</label>
+  <input id="apiBase" type="text" placeholder="例如 http://服务器IP:8062" />
 
   <div class="row">
     <div>
@@ -74,6 +74,19 @@
   <div id="log"></div>
 
   <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      fetch('/env.json')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (!j || !j.apiHttpPort) return;
+          var base = location.protocol + '//' + location.hostname + ':' + j.apiHttpPort;
+          var inp = document.getElementById('apiBase');
+          if (inp && !inp.value.trim()) inp.value = base;
+          var sl = document.getElementById('swaggerLink');
+          if (sl) sl.href = base + '/swagger/';
+        })
+        .catch(function () {});
+    });
     function baseURL() {
       const s = document.getElementById('apiBase').value.trim();
       if (s) return s.replace(/\/$/, '');
