@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WeChat API · Swagger UI</title>
+    <!-- 核心库 -->
+    <link rel="stylesheet" type="text/css" href="./swagger-ui.css">
+    <!-- 字体与动画 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <style>
+        /* ===== 全局变量 ===== */
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #ca2799;
+            --accent: #ec4899;
+            --bg-light: #f8fafc;
+            --text-dark: #1e293b;
+            --text-light: #f1f5f9;
+            --text-muted: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --radius: 12px;
+            --radius-sm: 8px;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            --shadow-hover: 0 8px 32px rgba(0, 0, 0, 0.1);
+            --transition: 0.3s ease;
+        }
+
+        /* ===== 基础重置 ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-light);
+            color: var(--text-dark);
+            line-height: 1.6;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                    radial-gradient(circle at 70% 30%, rgba(59,130,246,0.05) 0%, transparent 50%),
+                    radial-gradient(circle at 30% 70%, rgba(236,72,153,0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* ===== 隐藏不需要的 Swagger UI 元素 ===== */
+        .swagger-ui .information-container,
+        .swagger-ui .scheme-container,
+        .swagger-ui .topbar,
+        .swagger-ui .models {
+            display: none !important;
+        }
+
+        /* ===== 自定义头部 ===== */
+        .custom-header {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            color: white;
+            padding: 3rem 2rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .custom-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background:
+                    radial-gradient(circle at 70% 30%, rgba(255,255,255,0.1) 0%, transparent 50%),
+                    radial-gradient(circle at 30% 70%, rgba(255,255,255,0.05) 0%, transparent 70%);
+            animation: rotateGradient 20s linear infinite;
+            z-index: 0;
+        }
+
+        @keyframes rotateGradient {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+        }
+
+        .header-title {
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .header-description {
+            opacity: 0.9;
+            font-size: 1.05rem;
+            max-width: 800px;
+        }
+
+        /* ===== 主容器 ===== */
+        .api-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* ===== 高级配置面板 ===== */
+        .config-panel {
+            background: white;
+            border-radius: var(--radius);
+            padding: 1.8rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow);
+        }
+
+        .config-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.2rem;
+        }
+
+        .config-label {
+            width: 140px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--text-dark);
+        }
+
+        .config-input {
+            flex: 1;
+            padding: 0.6rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            transition: border-color var(--transition);
+        }
+        .config-input:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+
+        /* 单选组 */
+        .radio-group {
+            display: flex;
+            gap: 1.5rem;
+        }
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            cursor: pointer;
+        }
+        .radio-group input[type="radio"] {
+            width: 1.1rem;
+            height: 1.1rem;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        /* ===== WebSocket 面板 ===== */
+        .ws-panel {
+            margin-top: 1.8rem;
+            padding-top: 1.8rem;
+            border-top: 1px solid #e2e8f0;
+        }
+        .ws-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+        .ws-controls {
+            display: flex;
+            gap: 0.8rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .ws-input {
+            flex: 1;
+            min-width: 280px;
+            padding: 0.6rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+        }
+        .ws-btn {
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            font-weight: 500;
+            background: var(--primary);
+            color: white;
+            cursor: pointer;
+            transition: background var(--transition), transform var(--transition);
+        }
+        .ws-btn:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+        .ws-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .ws-btn.secondary {
+            background: #64748b;
+        }
+        .ws-btn.secondary:hover:not(:disabled) {
+            background: #475569;
+        }
+
+        .message-list {
+            max-height: 350px;
+            overflow-y: auto;
+            margin-top: 1.2rem;
+            padding: 0.8rem;
+            background: #f1f5f9;
+            border-radius: var(--radius-sm);
+        }
+        .message-item {
+            padding: 0.8rem 1rem;
+            margin-bottom: 0.6rem;
+            background: white;
+            border-radius: var(--radius-sm);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.02);
+            word-break: break-word;
+        }
+
+        /* ===== Swagger 卡片增强 ===== */
+        .swagger-ui .opblock-tag {
+            font-size: 1.5rem !important;
+            margin: 2.5rem 0 1rem !important;
+            padding-bottom: 0.75rem !important;
+            border-bottom: 2px solid rgba(0,0,0,0.05) !important;
+            font-weight: 600 !important;
+            color: var(--primary-dark) !important;
+            position: relative;
+        }
+        .swagger-ui .opblock-tag::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 80px;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+        }
+        .swagger-ui .opblock {
+            border-radius: var(--radius) !important;
+            margin-bottom: 1.5rem !important;
+            box-shadow: var(--shadow) !important;
+            border: none !important;
+            transition: all var(--transition) !important;
+            background: white !important;
+        }
+        .swagger-ui .opblock:hover {
+            transform: translateY(-4px) !important;
+            box-shadow: var(--shadow-hover) !important;
+        }
+        .swagger-ui .opblock-summary {
+            padding: 1.2rem 1.5rem !important;
+            background: white !important;
+            border-radius: var(--radius) var(--radius) 0 0 !important;
+        }
+        .swagger-ui .opblock-summary-method {
+            border-radius: 6px !important;
+            min-width: 70px !important;
+            padding: 0.3rem 0 !important;
+            font-weight: 600 !important;
+            font-size: 0.8rem !important;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04) !important;
+        }
+
+        /* 复制按钮通用样式 */
+        .btn-copy {
+            display: inline-block;
+            padding: 4px 12px;
+            margin-left: 12px;
+            background: #2b85e4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-copy:hover {
+            background: #1a5bbf;
+            transform: scale(1.02);
+        }
+        .btn-copy-json {
+            background: #515a6e;
+        }
+        .btn-copy-json:hover {
+            background: #363e4f;
+        }
+
+        /* ===== 页脚 ===== */
+        .custom-footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            background: white;
+            border-top: 1px solid rgba(0,0,0,0.05);
+            margin-top: 3rem;
+        }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 768px) {
+            .custom-header { padding: 2rem 1.5rem; }
+            .header-title { font-size: 1.8rem; }
+            .api-container { padding: 1.5rem; }
+            .config-group { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+            .config-label { width: auto; }
+            .ws-controls { flex-direction: column; }
+            .ws-input { width: 100%; }
+        }
+
+        /* 隐藏无用元素 */
+        .base-url, .card, .tg-link {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+<!-- 自定义头部（动态标题会由 JS 填充） -->
+<header class="custom-header animate__animated animate__fadeIn">
+    <div class="header-content">
+        <h1 class="header-title"></h1>
+        <p class="header-description"></p>
+    </div>
+</header>
+
+<!-- 高级配置面板（wxid、展开方式、WebSocket） -->
+<div id="configPanel" class="config-panel api-container" style="margin-top: 1rem;">
+    <div class="config-group">
+        <label for="tokenKey" class="config-label">默认值 Wxid</label>
+        <input type="text" id="tokenKey" class="config-input" placeholder="请输入登录成功的 wxid">
+    </div>
+    <div class="config-group">
+        <span class="config-label">Swagger 展开方式</span>
+        <div class="radio-group" id="expandRadioGroup">
+            <label><input type="radio" name="expand" value="none" checked> 不展开</label>
+            <label><input type="radio" name="expand" value="list"> 只展开API</label>
+            <label><input type="radio" name="expand" value="full"> 展开所有</label>
+        </div>
+    </div>
+
+    <div class="ws-panel">
+        <div class="ws-title">🔌 WebSocket 客户端（连接前请确保开启心跳包）</div>
+        <div class="ws-controls">
+            <input id="wsUrlInput" type="text" class="ws-input" placeholder="输入 WebSocket URL">
+            <button id="wsConnectBtn" class="ws-btn">连接</button>
+            <button id="wsDisconnectBtn" class="ws-btn secondary" disabled>取消连接</button>
+            <button id="wsClearBtn" class="ws-btn secondary">清理消息</button>
+        </div>
+        <div id="messageList" class="message-list"></div>
+    </div>
+</div>
+
+<!-- Swagger UI 容器 -->
+<div class="api-container">
+    <div id="swagger-ui"></div>
+</div>
+
+<footer class="custom-footer">
+    Powered by Swagger UI · WeChat API Console
+</footer>
+
+<!-- 依赖脚本 -->
+<script src="./swagger-ui-bundle.js" charset="UTF-8"></script>
+<script src="./swagger-ui-standalone-preset.js" charset="UTF-8"></script>
+<script src="./jquery-3.7.1.slim.min.js"></script>
+
+<script>
+    (function(){
+        "use strict";
+
+        // ---------- 常量配置 ----------
+        const WS_BASE_URL = 'ws://127.0.0.1:8088';
+        const SWAGGER_JSON_URL = 'swagger.json';
+        const DEFAULT_DOC_EXPANSION = 'none';
+
+        // ---------- 全局状态 ----------
+        let swaggerUI = null;
+        let websocket = null;
+        let currentWxid = '';
+
+        // ---------- DOM 元素 ----------
+        const $tokenInput = $('#tokenKey');
+        const $wsUrlInput = $('#wsUrlInput');
+        const $connectBtn = $('#wsConnectBtn');
+        const $disconnectBtn = $('#wsDisconnectBtn');
+        const $clearBtn = $('#wsClearBtn');
+        const $messageList = $('#messageList');
+        const $headerTitle = $('h1.header-title');
+        const $headerDesc = $('p.header-description');
+
+        // ---------- 工具函数 ----------
+        // 复制文本到剪贴板
+        function copyTextToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).catch(err => fallbackCopy(text));
+            } else {
+                fallbackCopy(text);
+            }
+        }
+        function fallbackCopy(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try { document.execCommand('copy'); } catch (e) { console.error(e); }
+            document.body.removeChild(textarea);
+        }
+
+        // 更新按钮状态
+        function setButtonLoading($btn, isLoading, text) {
+            $btn.text(isLoading ? (text + '...') : text).prop('disabled', isLoading);
+        }
+
+        // 添加消息到列表
+        function appendMessage(msg) {
+            const $item = $('<div>').addClass('message-item').text(msg);
+            $messageList.append($item);
+            $messageList.scrollTop($messageList[0].scrollHeight);
+        }
+
+        // ---------- WebSocket 模块 ----------
+        const WebSocketManager = {
+            init() {
+                // 初始化 URL 占位
+                $wsUrlInput.val(`${WS_BASE_URL}/ws/您的wxid`);
+
+                // 连接
+                $connectBtn.on('click', () => {
+                    const url = $wsUrlInput.val().trim();
+                    if (!url) return;
+
+                    if (websocket && websocket.readyState === WebSocket.OPEN) {
+                        websocket.close();
+                    }
+
+                    setButtonLoading($connectBtn, true, '连接');
+                    websocket = new WebSocket(url);
+
+                    websocket.onopen = () => {
+                        console.log('WebSocket 已连接');
+                        appendMessage('✅ 已连接到服务器');
+                        setButtonLoading($connectBtn, false, '连接');
+                        $connectBtn.prop('disabled', true);
+                        $disconnectBtn.prop('disabled', false);
+                    };
+
+                    websocket.onmessage = (e) => {
+                        appendMessage(e.data);
+                    };
+
+                    websocket.onclose = () => {
+                        console.log('WebSocket 已关闭');
+                        appendMessage('🔌 与服务器的连接已关闭');
+                        setButtonLoading($connectBtn, false, '连接');
+                        $connectBtn.prop('disabled', false);
+                        $disconnectBtn.prop('disabled', true).text('取消连接');
+                        websocket = null;
+                    };
+
+                    websocket.onerror = (err) => {
+                        console.error('WebSocket 错误:', err);
+                        appendMessage('❌ WebSocket 错误');
+                        setButtonLoading($connectBtn, false, '连接');
+                    };
+                });
+
+                // 断开连接
+                $disconnectBtn.on('click', function() {
+                    if (websocket) {
+                        setButtonLoading($disconnectBtn, true, '取消中');
+                        setTimeout(() => {
+                            websocket.close();
+                            setButtonLoading($disconnectBtn, false, '取消连接');
+                        }, 30);
+                    }
+                });
+
+                // 清理消息
+                $clearBtn.on('click', () => $messageList.empty());
+            }
+        };
+
+        // ---------- Swagger 插件：自动设置 wxid 示例值 ----------
+        const WxidPlugin = function(system) {
+            return {
+                statePlugins: {
+                    spec: {
+                        actions: {
+                            updateQueryParam: (paramName, paramValue) => (state) => {
+                                const spec = state.specSelectors.specJson().toJS();
+                                const paths = spec.paths || {};
+
+                                Object.keys(paths).forEach(pathKey => {
+                                    Object.keys(paths[pathKey]).forEach(method => {
+                                        const parameters = paths[pathKey][method].parameters || [];
+                                        parameters.forEach(param => {
+                                            // 处理 body 参数中的 Wxid 字段
+                                            if (paramName === 'wxid' && param.in === 'body' && param.schema && param.schema.properties) {
+                                                const setExample = (obj) => {
+                                                    if (obj.type === 'string' && !obj.example) obj.example = '';
+                                                    if (obj.properties) {
+                                                        Object.keys(obj.properties).forEach(k => {
+                                                            if (k === 'Wxid') obj.properties[k].example = paramValue || '';
+                                                            else setExample(obj.properties[k]);
+                                                        });
+                                                    }
+                                                };
+                                                setExample(param.schema);
+                                            }
+                                            // 处理 query 参数
+                                            if (param.name === paramName && param.in === 'query') {
+                                                param.default = paramValue;
+                                            }
+                                        });
+                                    });
+                                });
+                                state.specActions.updateSpec(JSON.stringify(spec));
+                            }
+                        }
+                    }
+                }
+            };
+        };
+
+        // ---------- Swagger 初始化 ----------
+        function initSwagger() {
+            swaggerUI = SwaggerUIBundle({
+                url: SWAGGER_JSON_URL,
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+                plugins: [SwaggerUIBundle.plugins.DownloadUrl, WxidPlugin],
+                docExpansion: DEFAULT_DOC_EXPANSION,
+                onComplete: function() {
+                    console.log('Swagger UI onComplete');
+                    updateHeaderFromSwagger();
+                    observeSwaggerLoading();
+                },
+                parameterMacro: function(operation, parameter) {
+                    if (parameter.in === 'body' && parameter.schema && parameter.schema.properties) {
+                        const setExample = (obj) => {
+                            if (obj.type === 'string' && !obj.example) obj.example = '';
+                            if (obj.properties) {
+                                Object.keys(obj.properties).forEach(k => {
+                                    if (k === 'Wxid') obj.properties[k].example = currentWxid || '';
+                                    else setExample(obj.properties[k]);
+                                });
+                            }
+                        };
+                        setExample(parameter.schema);
+                    }
+                    if (parameter.in === 'query' && parameter.name === 'wxid') {
+                        return currentWxid || '';
+                    }
+                    return parameter.default;
+                }
+            });
+            window.ui = swaggerUI;
+        }
+
+        // 从 swagger.json 中读取 title/description 并更新头部
+        function updateHeaderFromSwagger() {
+            if (!swaggerUI) return;
+            try {
+                const spec = swaggerUI.specSelectors.specJson().toJS();
+                const info = spec.info || {};
+                $headerTitle.text(info.title || 'WeChat API');
+                $headerDesc.text(info.description || '');
+            } catch (e) {
+                console.warn('解析 Swagger info 失败', e);
+            }
+        }
+
+        // 监听接口内容加载完成，添加复制按钮
+        function observeSwaggerLoading() {
+            const target = document.getElementById('swagger-ui');
+            if (!target) return;
+            const observer = new MutationObserver((mutations, obs) => {
+                const loadingImgs = target.querySelectorAll('img.opblock-loading-animation');
+                if (loadingImgs.length === 0) {
+                    console.log('Swagger 接口加载完成，添加复制按钮');
+                    addCopyButtons();
+                    obs.disconnect();
+                }
+            });
+            observer.observe(target, { childList: true, subtree: true });
+            // 保险：某些情况没有 loading 图，延迟一次尝试
+            setTimeout(() => {
+                if (target.querySelectorAll('img.opblock-loading-animation').length === 0) {
+                    addCopyButtons();
+                    observer.disconnect();
+                }
+            }, 800);
+        }
+
+        // 添加复制按钮（接口路径 + 请求体示例）
+        function addCopyButtons() {
+            addApiPathCopyButtons();
+            addRequestBodyCopyButtons();
+            // 给 opblock-tag 绑定点击事件，再次尝试添加（动态展开）
+            $('.opblock-tag').off('click.copy').on('click.copy', function() {
+                setTimeout(() => {
+                    addApiPathCopyButtons();
+                    addRequestBodyCopyButtons();
+                }, 150);
+            });
+        }
+
+        // 复制 API 路径和描述
+        function addApiPathCopyButtons() {
+            $('.opblock-summary-description').each(function() {
+                if ($(this).attr('data-copy-added') === 'true') return;
+                const $desc = $(this);
+                const $summary = $desc.closest('.opblock-summary');
+                const $pathSpan = $summary.find('.opblock-summary-path');
+                if (!$pathSpan.length) return;
+
+                const apiPath = $pathSpan.attr('data-path') || $pathSpan.text().trim();
+                const descText = $desc.text().trim();
+                const copyText = `${apiPath} ${descText}`.replace(/([^:])\/+/g, '$1/');
+
+                const $btn = $('<button>')
+                    .addClass('btn-copy')
+                    .text('复制')
+                    .on('click', function(e) {
+                        e.stopPropagation();
+                        copyTextToClipboard(copyText);
+                        $(this).text('复制成功！');
+                        setTimeout(() => $(this).text('复制'), 500);
+                    });
+                $desc.after($btn);
+                $(this).attr('data-copy-added', 'true');
+            });
+        }
+
+        // 复制请求体 JSON
+        function addRequestBodyCopyButtons() {
+            $('#swagger-ui li[role="presentation"]:nth-child(2)').each(function() {
+                if ($(this).attr('data-copy-json-added') === 'true') return;
+                const $tab = $(this);
+                const $btn = $('<button>')
+                    .addClass('btn-copy btn-copy-json')
+                    .text('复制')
+                    .on('click', function() {
+                        const $pre = $('#swagger-ui .highlight-code pre').first();
+                        if ($pre.length) {
+                            copyTextToClipboard($pre.text());
+                            $(this).text('复制成功！');
+                            setTimeout(() => $(this).text('复制'), 500);
+                        }
+                    });
+                $tab.after($btn);
+                $tab.attr('data-copy-json-added', 'true');
+            });
+        }
+
+        // ---------- 二维码登录弹窗 ----------
+        function showQRCodePopup(base64Data, uuid) {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+          position: fixed; top:0; left:0; width:100%; height:100%;
+          background: rgba(0,0,0,0.7); display:flex; justify-content:center;
+          align-items:center; z-index:10000;
+        `;
+
+            const container = document.createElement('div');
+            container.style.cssText = `
+          background: white; padding: 24px; border-radius: 16px;
+          display: flex; flex-direction: column; align-items: center;
+          max-width: 400px; position: relative;
+        `;
+
+            const closeBtn = document.createElement('span');
+            closeBtn.innerHTML = '&times;';
+            closeBtn.style.cssText = `
+          position: absolute; top: 8px; right: 16px; font-size: 32px;
+          cursor: pointer; color: #666;
+        `;
+            closeBtn.onclick = () => document.body.removeChild(overlay);
+
+            const title = document.createElement('h3');
+            title.textContent = '微信扫码登录';
+            title.style.marginBottom = '20px';
+
+            const img = document.createElement('img');
+            img.src = base64Data;
+            img.style.width = '280px'; img.style.height = '280px';
+
+            const resultDiv = document.createElement('div');
+            resultDiv.style.cssText = 'margin-top: 20px; word-break: break-all; max-width: 100%;';
+
+            const checkBtn = document.createElement('button');
+            checkBtn.textContent = '检测二维码';
+            checkBtn.style.cssText = `
+          margin-top: 20px; padding: 8px 24px; background: #3498db;
+          color: white; border: none; border-radius: 6px; cursor: pointer;
+        `;
+
+            checkBtn.onclick = function() {
+                if (checkBtn.textContent.includes('登录成功')) return;
+                checkBtn.disabled = true; checkBtn.textContent = '检测中...';
+                fetch(`/api/Login/LoginCheckQR?uuid=${uuid}`, { method: 'POST' })
+                    .then(r => r.json())
+                    .then(data => {
+                        const acct = data.Data?.acctSectResp || data.Data || {};
+                        acct.Message = data.Message;
+                        resultDiv.textContent = `检测结果: ${JSON.stringify(acct)}`;
+                        if (acct.Message?.includes('登录成功')) {
+                            checkBtn.textContent = '登录成功';
+                            checkBtn.style.opacity = '0.6';
+                        } else {
+                            checkBtn.textContent = '检测二维码';
+                            checkBtn.disabled = false;
+                        }
+                    })
+                    .catch(() => {
+                        checkBtn.textContent = '检测二维码';
+                        checkBtn.disabled = false;
+                    });
+            };
+
+            container.append(closeBtn, title, img, checkBtn, resultDiv);
+            overlay.appendChild(container);
+            document.body.appendChild(overlay);
+        }
+
+        // ---------- 拦截 fetch，捕获登录二维码 ----------
+        function hijackFetch() {
+            const originalFetch = window.fetch;
+            window.fetch = async function(...args) {
+                const url = args[0];
+                try {
+                    const response = await originalFetch.apply(this, args);
+                    const cloned = response.clone();
+                    cloned.text().then(bodyText => {
+                        if (/login/i.test(url) && /getqr/i.test(url) && bodyText.startsWith('{')) {
+                            try {
+                                const data = JSON.parse(bodyText);
+                                const qrBase64 = data.Data?.Data62 || data.Data?.QrBase64;
+                                const uuid = data.Data?.Uuid || data.Data?.uuid;
+                                if (qrBase64 && uuid) {
+                                    showQRCodePopup(qrBase64, uuid);
+                                }
+                            } catch (e) { /* 忽略解析错误 */ }
+                        }
+                        // 更新头部信息
+                        try {
+                            const json = JSON.parse(bodyText);
+                            if (json.info) {
+                                $headerTitle.text(json.info.title || '');
+                                $headerDesc.text(json.info.description || '');
+                            }
+                        } catch (e) {}
+                    });
+                    return response;
+                } catch (err) {
+                    throw err;
+                }
+            };
+        }
+
+        // ---------- 事件绑定 ----------
+        function bindEvents() {
+            // wxid 输入改变
+            $tokenInput.on('input change', function() {
+                currentWxid = $(this).val().trim();
+                if (currentWxid) {
+                    $wsUrlInput.val(`${WS_BASE_URL}/ws/${currentWxid}`);
+                }
+                if (swaggerUI) {
+                    swaggerUI.specActions.updateQueryParam('wxid', currentWxid);
+                }
+            });
+
+            // 展开方式切换
+            $('#expandRadioGroup input[type="radio"]').on('change', function() {
+                if (!swaggerUI) return;
+                const val = $(this).val();
+                const configs = swaggerUI.getConfigs();
+                configs.docExpansion = val;
+                // 触发配置更新，并重新尝试添加复制按钮
+                swaggerUI.configsActions.toggle();
+                setTimeout(() => {
+                    observeSwaggerLoading();
+                }, 200);
+            });
+        }
+
+        // ---------- 启动一切 ----------
+        function init() {
+            WebSocketManager.init();
+            initSwagger();
+            hijackFetch();
+            bindEvents();
+            // 将配置面板移动至正确位置（原代码逻辑）
+            setTimeout(() => {
+                $('#configPanel').insertAfter('.information-container:first').css('display', 'block');
+            }, 100);
+        }
+
+        $(init);
+    })();
+</script>
+</body>
+</html>

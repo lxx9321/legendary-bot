@@ -1,0 +1,73 @@
+syntax="proto2";
+option go_package = "/;mw";
+package mw;
+
+message SKBuiltinBufferWin_t {
+  optional  uint32  iLen  = 1;
+  optional  bytes  buffer  = 2;
+}
+
+message AcctSectResp {
+    optional  string  userName  = 1;
+    optional  string  nickName  = 2;
+    optional  uint32  bindUin  = 3;
+    optional  string  bindEmail  = 4;
+    optional  string  bindMobile  = 5;
+    optional  string  alias  = 6;
+    optional  uint32  status  = 8;
+    optional  uint32  pluginFlag  = 9;
+    optional  uint32  regType  = 10;
+    optional  string  deviceInfoXml  = 11;
+    optional  uint32  safeDevice  = 12;
+    optional  string  officialUserName  = 13;
+    optional  string  officialNickName  = 14;
+    optional  uint32  pushMailStatus  = 15;
+    optional  string  fsurl  = 16;
+}
+
+message BaseRequestWin {
+  optional  bytes  sessionKey  = 1;
+  optional  uint32  uin  = 2;
+  optional  bytes  deviceId  = 3;
+  optional  uint32  clientVersion  = 4;
+  optional  bytes  deviceType  = 5;
+  optional  uint32  scene  = 6;
+}
+
+
+message GetLoginQRCodeRequestWin {
+  optional  BaseRequestWin  baseRequest  = 1;
+  optional  SKBuiltinBufferWin_t  randomEncryKey  = 2;
+  optional  uint32  opcode  = 3;
+  optional  string  deviceName  = 4;
+  optional  string  userName  = 5;
+  optional  uint32  extDevLoginType  = 6;
+  optional  string  hardwareExtra  = 7;
+  optional  string  softType  = 8;
+  optional  SKBuiltinBufferWin_t  msgContextPubKey  = 9;
+}
+
+message FPFresh {
+  optional  BaseRequest baseRequest = 1;
+  optional  bytes SessKey = 2;
+  optional  ZTData Ztdata = 3;
+}
+
+
+message ZTData {
+  optional  string    Version = 1;
+  optional  uint32    Encrypted = 2;
+  optional  bytes     Data = 3;
+  optional  uint32    TimeStamp = 4;
+  optional  uint32    Optype = 5;
+  optional  uint32    Uin = 6;
+}
+
+message BaseRequest {
+  optional  bytes  sessionKey  = 1;
+  optional  uint32  uin  = 2;
+  optional  bytes  deviceId  = 3;
+  optional  uint32  clientVersion  = 4;
+  optional  bytes  deviceType  = 5;
+  optional  uint32  scene  = 6;
+}
