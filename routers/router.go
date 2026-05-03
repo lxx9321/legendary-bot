@@ -5,6 +5,7 @@ package routers
 
 import (
 	"wechatdll/controllers"
+	"wechatdll/middleware"
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/plugins/cors"
@@ -14,10 +15,13 @@ func init() {
 	beego.InsertFilter("*", beego.BeforeRouter, cors.Allow(&cors.Options{
 		AllowAllOrigins:  true,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Authorization", "Access-Control-Allow-Origin", "Access-Control-Allow-Headers", "Content-Type"},
+		AllowHeaders:     []string{"Origin", "Authorization", "Access-Control-Allow-Origin", "Access-Control-Allow-Headers", "Content-Type", "X-API-Key"},
 		ExposeHeaders:    []string{"Content-Length", "Access-Control-Allow-Origin", "Access-Control-Allow-Headers", "Content-Type"},
 		AllowCredentials: true,
 	}))
+
+	// 用 * 注册：部分 beego 版本下 /api/* 匹配不到命名空间路由；在 APIKeyGate 内再按 Path 前缀限制为 /api/
+	beego.InsertFilter("*", beego.BeforeRouter, middleware.APIKeyGate, false)
 
 	ns := beego.NewNamespace("/api",
 		beego.NSNamespace("/Login",

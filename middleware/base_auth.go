@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"github.com/astaxie/beego/context"
-	"time"
 )
 
 var requestCont float32 = 1.2

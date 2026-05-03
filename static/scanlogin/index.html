@@ -3,78 +3,417 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>扫码登录</title>
+  <title>扫码登录 · wxapi</title>
   <style>
-    :root { font-family: system-ui, sans-serif; color: #1a1a1a; }
-    body { max-width: 720px; margin: 24px auto; padding: 0 16px; }
-    h1 { font-size: 1.25rem; }
-    label { display: block; margin-top: 10px; font-size: 0.85rem; color: #444; }
-    input, select, button { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px; }
-    button { margin-top: 14px; cursor: pointer; width: auto; min-width: 120px; }
-    .row { display: flex; gap: 12px; flex-wrap: wrap; }
-    .row > div { flex: 1 1 200px; }
-    #qr { max-width: 280px; margin-top: 16px; border: 1px solid #ddd; }
-    #log { margin-top: 16px; white-space: pre-wrap; background: #f6f6f6; padding: 12px; border-radius: 6px; font-size: 0.8rem; max-height: 320px; overflow-y: auto; }
-    .hint { font-size: 0.8rem; color: #666; margin-top: 8px; }
-    a { color: #06c; }
+    :root {
+      --bg0: #0a0c10;
+      --bg1: #12151c;
+      --card: rgba(22, 26, 36, 0.72);
+      --card-border: rgba(120, 200, 255, 0.12);
+      --text: #e8ecf4;
+      --muted: #8b95a8;
+      --accent: #2ee6c9;
+      --accent-dim: rgba(46, 230, 201, 0.15);
+      --violet: #a78bfa;
+      --danger: #f472b6;
+      --input-bg: rgba(0, 0, 0, 0.35);
+      --radius: 14px;
+      --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+      --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: var(--font);
+      color: var(--text);
+      background: var(--bg0);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    .bg-mesh {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse 100% 80% at 20% -20%, rgba(46, 230, 201, 0.18), transparent 50%),
+        radial-gradient(ellipse 80% 60% at 100% 0%, rgba(167, 139, 250, 0.14), transparent 45%),
+        radial-gradient(ellipse 60% 50% at 50% 100%, rgba(56, 189, 248, 0.08), transparent 50%),
+        linear-gradient(180deg, var(--bg0) 0%, var(--bg1) 100%);
+      pointer-events: none;
+    }
+    .bg-mesh::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: 0.5;
+    }
+    .shell {
+      position: relative;
+      z-index: 1;
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }
+    .hero {
+      margin-bottom: 28px;
+    }
+    .hero-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.5rem, 4vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(120deg, #fff 0%, var(--accent) 55%, var(--violet) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero .tagline {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      max-width: 560px;
+      line-height: 1.55;
+    }
+    .hero .tagline code {
+      font-family: var(--mono);
+      font-size: 0.82em;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: var(--accent-dim);
+      color: var(--accent);
+    }
+    .hero .tagline a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(46, 230, 201, 0.35);
+    }
+    .hero .tagline a:hover { border-bottom-color: var(--accent); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--accent-dim);
+      border: 1px solid rgba(46, 230, 201, 0.25);
+      white-space: nowrap;
+    }
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.45; }
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 880px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 22px 22px 24px;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+    }
+    .card h2 {
+      margin: 0 0 18px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    label {
+      display: block;
+      margin-top: 14px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+    label:first-of-type { margin-top: 0; }
+    input, select {
+      width: 100%;
+      margin-top: 8px;
+      padding: 12px 14px;
+      font-size: 0.92rem;
+      font-family: var(--font);
+      color: var(--text);
+      background: var(--input-bg);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input::placeholder { color: #5c6575; }
+    input:focus, select:focus {
+      border-color: rgba(46, 230, 201, 0.45);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b95a8' d='M3 4.5L6 8l3-3.5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+    .row {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .row > div { flex: 1 1 160px; min-width: 0; }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }
+    button {
+      font-family: var(--font);
+      font-size: 0.88rem;
+      font-weight: 600;
+      padding: 11px 18px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+    }
+    button:active { transform: scale(0.98); }
+    #btnQr {
+      color: #04120f;
+      background: linear-gradient(135deg, #2ee6c9 0%, #22d3ee 100%);
+      box-shadow: 0 8px 24px rgba(46, 230, 201, 0.28);
+    }
+    #btnQr:hover { box-shadow: 0 10px 28px rgba(46, 230, 201, 0.4); }
+    #btnPoll {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    #btnPoll:hover { background: rgba(255, 255, 255, 0.12); }
+    #btnStop {
+      color: #fff;
+      background: linear-gradient(135deg, rgba(244, 114, 182, 0.35), rgba(244, 114, 182, 0.12));
+      border: 1px solid rgba(244, 114, 182, 0.35);
+    }
+    #btnStop:hover { background: rgba(244, 114, 182, 0.22); }
+    #btnTwice {
+      color: #1a1208;
+      background: linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%);
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.25);
+    }
+    #btnTwice:hover { box-shadow: 0 8px 24px rgba(245, 158, 11, 0.38); }
+    #btnAwaken {
+      color: #f5f3ff;
+      background: linear-gradient(135deg, rgba(167, 139, 250, 0.55) 0%, rgba(139, 92, 246, 0.45) 100%);
+      border: 1px solid rgba(167, 139, 250, 0.45);
+      box-shadow: 0 6px 22px rgba(139, 92, 246, 0.2);
+    }
+    #btnAwaken:hover { background: linear-gradient(135deg, rgba(167, 139, 250, 0.7), rgba(139, 92, 246, 0.55)); }
+    .divider {
+      margin: 22px 0 16px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .sub-desc {
+      margin: -6px 0 12px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .actions-secondary { margin-top: 14px; }
+    .side-card { position: sticky; top: 20px; }
+    .qr-panel {
+      text-align: center;
+      padding: 16px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px dashed rgba(46, 230, 201, 0.2);
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #uuidLine {
+      margin-top: 12px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      word-break: break-all;
+      text-align: center;
+      line-height: 1.4;
+    }
+    #qr {
+      max-width: 240px;
+      width: 100%;
+      border-radius: 12px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .qr-placeholder {
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 24px 12px;
+    }
+    #log {
+      margin-top: 16px;
+      padding: 14px 14px 16px;
+      min-height: 140px;
+      max-height: 280px;
+      overflow-y: auto;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      line-height: 1.55;
+      color: #86efac;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 10px;
+      border: 1px solid rgba(34, 197, 94, 0.15);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    #log:empty::before {
+      content: "// 日志输出…";
+      color: #4b5f4d;
+    }
   </style>
 </head>
 <body>
-  <h1>扫码登录</h1>
-  <p class="hint">若在<b>独立端口</b>打开本页，会自动请求 <code>/env.json</code> 并填写「API 根地址」指向主服务。Swagger：<a id="swaggerLink" href="/swagger/">主服务 /swagger/</a>。</p>
+  <div class="bg-mesh" aria-hidden="true"></div>
+  <div class="shell">
+    <header class="hero">
+      <div class="hero-top">
+        <div>
+          <h1>扫码登录</h1>
+          <p class="tagline">
+            独立端口打开时会请求 <code>/env.json</code> 自动填写 API 根地址。文档：
+            <a id="swaggerLink" href="/swagger/">Swagger</a>
+          </p>
+        </div>
+        <span class="badge"><span class="badge-dot"></span> wxapi</span>
+      </div>
+    </header>
 
-  <label>API 根地址（独立端口打开时会自动填；与主服务同端口时可留空）</label>
-  <input id="apiBase" type="text" placeholder="例如 http://服务器IP:8062" />
+    <div class="grid">
+      <section class="card form-card">
+        <h2>请求参数</h2>
+        <label for="apiBase">API 根地址</label>
+        <input id="apiBase" type="text" placeholder="与主服务同端口可留空，如 http://IP:8062" />
 
-  <div class="row">
-    <div>
-      <label>取码端点</label>
-      <select id="endpoint">
-        <option value="LoginGetQR">LoginGetQR（iPad）</option>
-        <option value="LoginGetQRPad">LoginGetQRPad（安卓 Pad）</option>
-        <option value="LoginGetQRWin">LoginGetQRWin</option>
-        <option value="LoginGetQRWinUnified">LoginGetQRWinUnified</option>
-        <option value="LoginGetQRWinUwp">LoginGetQRWinUwp</option>
-        <option value="LoginGetQRMac">LoginGetQRMac</option>
-        <option value="LoginGetQRCar">LoginGetQRCar</option>
-        <option value="LoginGetQRx">LoginGetQRx</option>
-        <option value="LoginGetQRPadx">LoginGetQRPadx</option>
-        <option value="LoginGetQRNotCode">LoginGetQRNotCode</option>
-        <option value="LoginGetQRNotCodePush">LoginGetQRNotCodePush</option>
-      </select>
-    </div>
-    <div>
-      <label>DeviceName</label>
-      <input id="deviceName" type="text" value="iPad" />
+        <label for="apiKey">API Key（服务端开启 apikeyenforce 时必填，存浏览器 localStorage）</label>
+        <input id="apiKey" type="password" placeholder="Redis: SADD wxapi:api:keys <你的密钥>" autocomplete="off" />
+
+        <div class="row">
+          <div>
+            <label for="endpoint">取码端点</label>
+            <select id="endpoint">
+              <option value="LoginGetQR">LoginGetQR（iPad）</option>
+              <option value="LoginGetQRPad">LoginGetQRPad（安卓 Pad）</option>
+              <option value="LoginGetQRWin">LoginGetQRWin</option>
+              <option value="LoginGetQRWinUnified">LoginGetQRWinUnified</option>
+              <option value="LoginGetQRWinUwp">LoginGetQRWinUwp</option>
+              <option value="LoginGetQRMac">LoginGetQRMac</option>
+              <option value="LoginGetQRCar">LoginGetQRCar</option>
+              <option value="LoginGetQRx">LoginGetQRx</option>
+              <option value="LoginGetQRPadx">LoginGetQRPadx</option>
+              <option value="LoginGetQRNotCode">LoginGetQRNotCode</option>
+              <option value="LoginGetQRNotCodePush">LoginGetQRNotCodePush</option>
+            </select>
+          </div>
+          <div>
+            <label for="deviceName">DeviceName</label>
+            <input id="deviceName" type="text" value="iPad" />
+          </div>
+        </div>
+
+        <label for="deviceId">DeviceID（可选）</label>
+        <input id="deviceId" type="text" placeholder="已有设备指纹时填写" />
+
+        <label for="proxyIp">SOCKS5 代理 host:port（可选）</label>
+        <input id="proxyIp" type="text" placeholder="1.2.3.4:29677" />
+        <div class="row">
+          <div>
+            <label for="proxyUser">代理用户（可选）</label>
+            <input id="proxyUser" type="text" />
+          </div>
+          <div>
+            <label for="proxyPass">代理密码（可选）</label>
+            <input id="proxyPass" type="password" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" id="btnQr">获取二维码</button>
+          <button type="button" id="btnPoll">开始轮询 LoginCheckQR</button>
+          <button type="button" id="btnStop">停止轮询</button>
+        </div>
+
+        <div class="divider">
+          <h2>登录后维护</h2>
+          <p class="sub-desc">
+            PC 端掉线后：「二次登录」走 SecAutoAuth；「唤醒登录」走 Push 唤醒（仅适用于扫码登录缓存仍在服务端的情况，代理建议与取码一致）。
+          </p>
+          <label for="wxidForMaintain">Wxid（轮询里出现 wxid 时会自动填入）</label>
+          <input id="wxidForMaintain" type="text" placeholder="例如 wxid_xxxx" autocomplete="off" />
+          <div class="actions actions-secondary">
+            <button type="button" id="btnTwice">二次登录</button>
+            <button type="button" id="btnAwaken">唤醒登录</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card side-card">
+        <h2>二维码与日志</h2>
+        <div class="qr-panel">
+          <img id="qr" alt="二维码" style="display:none" />
+          <p id="qrPlaceholder" class="qr-placeholder">点击左侧「获取二维码」后在此显示</p>
+        </div>
+        <div id="uuidLine" class="hint"></div>
+        <div id="log"></div>
+      </section>
     </div>
   </div>
-
-  <label>DeviceID（可选，留空由服务端分配）</label>
-  <input id="deviceId" type="text" placeholder="已有设备指纹时填写" />
-
-  <label>SOCKS5 代理 host:port（可选）</label>
-  <input id="proxyIp" type="text" placeholder="1.2.3.4:29677" />
-  <div class="row">
-    <div>
-      <label>代理用户（可选）</label>
-      <input id="proxyUser" type="text" />
-    </div>
-    <div>
-      <label>代理密码（可选）</label>
-      <input id="proxyPass" type="password" />
-    </div>
-  </div>
-
-  <button type="button" id="btnQr">获取二维码</button>
-  <button type="button" id="btnPoll">开始轮询 LoginCheckQR</button>
-  <button type="button" id="btnStop">停止轮询</button>
-
-  <div id="uuidLine" class="hint"></div>
-  <img id="qr" alt="二维码" style="display:none" />
-  <div id="log"></div>
 
   <script>
     document.addEventListener('DOMContentLoaded', function () {
+      try {
+        var ak = document.getElementById('apiKey');
+        if (ak) ak.value = localStorage.getItem('wxapi_scan_api_key') || '';
+      } catch (e) {}
+      var akEl = document.getElementById('apiKey');
+      if (akEl) {
+        akEl.addEventListener('change', function () {
+          try { localStorage.setItem('wxapi_scan_api_key', this.value); } catch (e) {}
+        });
+      }
       fetch('/env.json')
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
@@ -91,6 +430,27 @@
       const s = document.getElementById('apiBase').value.trim();
       if (s) return s.replace(/\/$/, '');
       return window.location.origin;
+    }
+    function apiJsonHeaders() {
+      var h = { 'Content-Type': 'application/json' };
+      var k = document.getElementById('apiKey');
+      if (k && k.value.trim()) h['X-API-Key'] = k.value.trim();
+      return h;
+    }
+    function setQrVisible(show) {
+      var img = document.getElementById('qr');
+      var ph = document.getElementById('qrPlaceholder');
+      if (!ph) return;
+      img.style.display = show ? 'block' : 'none';
+      ph.style.display = show ? 'none' : 'block';
+    }
+    setQrVisible(false);
+    function proxyFromForm() {
+      return {
+        ProxyIp: document.getElementById('proxyIp').value.trim(),
+        ProxyUser: document.getElementById('proxyUser').value.trim(),
+        ProxyPassword: document.getElementById('proxyPass').value
+      };
     }
     function logLine(msg) {
       const el = document.getElementById('log');
@@ -109,11 +469,7 @@
       document.getElementById('log').textContent = '';
       const ep = document.getElementById('endpoint').value;
       const body = {
-        Proxy: {
-          ProxyIp: document.getElementById('proxyIp').value.trim(),
-          ProxyUser: document.getElementById('proxyUser').value.trim(),
-          ProxyPassword: document.getElementById('proxyPass').value
-        },
+        Proxy: proxyFromForm(),
         DeviceID: document.getElementById('deviceId').value.trim(),
         DeviceName: document.getElementById('deviceName').value.trim() || 'iPad',
         LoginType: ''
@@ -123,7 +479,7 @@
       try {
         const res = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: apiJsonHeaders(),
           body: JSON.stringify(body)
         });
         const text = await res.text();
@@ -135,6 +491,7 @@
         if (!j.Success || j.Code !== 1) {
           logLine('取码失败 Code=' + j.Code + ' Message=' + (j.Message || ''));
           logLine(text.slice(0, 800));
+          setQrVisible(false);
           return;
         }
         const data = j.Data || {};
@@ -147,17 +504,18 @@
         const img = document.getElementById('qr');
         if (data.QrBase64) {
           img.src = data.QrBase64.indexOf('data:') === 0 ? data.QrBase64 : ('data:image/png;base64,' + data.QrBase64);
-          img.style.display = 'block';
+          setQrVisible(true);
         } else if (data.QrUrl) {
           img.src = data.QrUrl;
-          img.style.display = 'block';
+          setQrVisible(true);
         } else {
-          img.style.display = 'none';
+          setQrVisible(false);
           logLine('无 QrBase64 / QrUrl');
         }
         logLine('取码成功，请用微信扫码后点「登录」');
       } catch (e) {
         logLine('请求异常: ' + e);
+        setQrVisible(false);
       }
     };
 
@@ -172,7 +530,7 @@
         try {
           const res = await fetch(checkUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: apiJsonHeaders(),
             body: '{}'
           });
           const text = await res.text();
@@ -189,7 +547,11 @@
           const d = j.Data;
           if (d && typeof d === 'object') {
             const wx = d.UserName || d.userName || d.wxid || d.Wxid;
-            if (wx) logLine('  wxid: ' + wx);
+            if (wx) {
+              logLine('  wxid: ' + wx);
+              var wxInp = document.getElementById('wxidForMaintain');
+              if (wxInp) wxInp.value = wx;
+            }
           }
         } catch (e) {
           logLine('轮询异常: ' + e);
@@ -198,6 +560,55 @@
       once();
       pollTimer = setInterval(once, 3000);
       logLine('每 3s 轮询 LoginCheckQR');
+    };
+
+    async function postLoginJson(path, bodyObj) {
+      const url = baseURL() + '/api/Login/' + path;
+      logLine('POST ' + url);
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: apiJsonHeaders(),
+          body: JSON.stringify(bodyObj || {})
+        });
+        const text = await res.text();
+        var j;
+        try { j = JSON.parse(text); } catch (e) {
+          logLine('非 JSON: ' + text.slice(0, 600));
+          return;
+        }
+        logLine('Code=' + j.Code + ' Success=' + j.Success + ' ' + (j.Message || ''));
+        if (j.Data != null && typeof j.Data === 'object') {
+          try { logLine('Data: ' + JSON.stringify(j.Data).slice(0, 500)); } catch (e2) {}
+        } else if (j.Data != null && typeof j.Data === 'string') {
+          logLine('Data: ' + j.Data.slice(0, 400));
+        }
+      } catch (e) {
+        logLine('请求异常: ' + e);
+      }
+    }
+
+    document.getElementById('btnTwice').onclick = function () {
+      var wxid = document.getElementById('wxidForMaintain').value.trim();
+      if (!wxid) {
+        logLine('请先填写 Wxid，或先轮询到 wxid 自动填入');
+        return;
+      }
+      var q = encodeURIComponent(wxid);
+      postLoginJson('LoginTwiceAutoAuth?wxid=' + q, {});
+    };
+
+    document.getElementById('btnAwaken').onclick = function () {
+      var wxid = document.getElementById('wxidForMaintain').value.trim();
+      if (!wxid) {
+        logLine('请先填写 Wxid，或先轮询到 wxid 自动填入');
+        return;
+      }
+      postLoginJson('LoginAwaken', {
+        Wxid: wxid,
+        Proxy: proxyFromForm(),
+        ProxyString: ''
+      });
     };
   </script>
 </body>

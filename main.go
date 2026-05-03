@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -42,6 +44,13 @@ func scanloginStandalonePort() int {
 func startScanloginHTTPServer(scanPort, apiPort int) {
 	const dir = "static/scanlogin"
 	addr := fmt.Sprintf("0.0.0.0:%d", scanPort)
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		msg := fmt.Sprintf("扫码页端口 %d 绑定失败: %v（外网会 ERR_EMPTY_RESPONSE）。请放行防火墙/安全组 TCP %d，或把 app.conf 里 scanloginhttpport 改为 0 改用 http://IP:%d/scanlogin/", scanPort, err, scanPort, apiPort)
+		log.Errorf(msg)
+		_, _ = fmt.Fprintln(os.Stderr, msg)
+		return
+	}
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/env.json" {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -51,10 +60,14 @@ func startScanloginHTTPServer(scanPort, apiPort int) {
 		}
 		http.FileServer(http.Dir(dir)).ServeHTTP(w, r)
 	})
-	log.Infof("扫码页独立端口 http://%s （API/Swagger 仍在主端口 %d；日志里 :8888 是验证代理，不是网页）", addr, apiPort)
-	if err := http.ListenAndServe(addr, h); err != nil {
-		log.Errorf("扫码页独立服务退出 %s: %v", addr, err)
-	}
+	boot := fmt.Sprintf("扫码页已监听 %s（浏览器: http://服务器公网IP:%d/ ；API/Swagger 仍在 %d；日志里 :8888 是验证代理）", ln.Addr().String(), scanPort, apiPort)
+	log.Infof(boot)
+	_, _ = fmt.Fprintln(os.Stderr, boot)
+	go func() {
+		if err := http.Serve(ln, h); err != nil {
+			log.Errorf("扫码页独立服务退出: %v", err)
+		}
+	}()
 }
 
 func main() {
@@ -100,7 +113,7 @@ func main() {
 		beego.BConfig.WebConfig.StaticDir["/scanlogin"] = "static/scanlogin"
 		log.Infof("扫码页与主服务同端口: /scanlogin/（主端口 %d）", apiPort)
 	default:
-		go startScanloginHTTPServer(sp, apiPort)
+		startScanloginHTTPServer(sp, apiPort)
 	}
 	beego.Get("/", func(ctx *context.Context) {
 		http.Redirect(ctx.ResponseWriter, ctx.Request, "/swagger/", http.StatusFound)
