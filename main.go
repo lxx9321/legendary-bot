@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"runtime"
 	"wechatdll/TcpPoll"
 	"wechatdll/comm"
@@ -9,6 +10,7 @@ import (
 	"wechatdll/srv/wxcore"
 
 	"github.com/astaxie/beego"
+	"github.com/astaxie/beego/context"
 	"github.com/lunny/log"
 )
 
@@ -48,7 +50,12 @@ func main() {
 	}
 
 	beego.BConfig.WebConfig.DirectoryIndex = true
-	beego.BConfig.WebConfig.StaticDir["/"] = "swagger"
+	// 根路径若整站映射 swagger，会吞掉 /scanlogin；Swagger 与取码页分前缀。
+	beego.BConfig.WebConfig.StaticDir["/swagger"] = "swagger"
+	beego.BConfig.WebConfig.StaticDir["/scanlogin"] = "static/scanlogin"
+	beego.Get("/", func(ctx *context.Context) {
+		http.Redirect(ctx.ResponseWriter, ctx.Request, "/swagger/", http.StatusFound)
+	})
 
 	beego.SetLogFuncCall(false)
 	//beego.InsertFilter("/*", beego.BeforeRouter, middleware.BaseAuthLog, false)

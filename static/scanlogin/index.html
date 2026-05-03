@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>扫码登录</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #1a1a1a; }
+    body { max-width: 720px; margin: 24px auto; padding: 0 16px; }
+    h1 { font-size: 1.25rem; }
+    label { display: block; margin-top: 10px; font-size: 0.85rem; color: #444; }
+    input, select, button { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px; }
+    button { margin-top: 14px; cursor: pointer; width: auto; min-width: 120px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .row > div { flex: 1 1 200px; }
+    #qr { max-width: 280px; margin-top: 16px; border: 1px solid #ddd; }
+    #log { margin-top: 16px; white-space: pre-wrap; background: #f6f6f6; padding: 12px; border-radius: 6px; font-size: 0.8rem; max-height: 320px; overflow-y: auto; }
+    .hint { font-size: 0.8rem; color: #666; margin-top: 8px; }
+    a { color: #06c; }
+  </style>
+</head>
+<body>
+  <h1>扫码登录</h1>
+  <p class="hint">与当前站点同源时，「API 根地址」可留空。Swagger 文档在 <a href="/swagger/">/swagger/</a>。</p>
+
+  <label>API 根地址（可选，默认本页域名）</label>
+  <input id="apiBase" type="text" placeholder="留空 = 当前站点，如 https://你的域名:8062" />
+
+  <div class="row">
+    <div>
+      <label>取码端点</label>
+      <select id="endpoint">
+        <option value="LoginGetQR">LoginGetQR（iPad）</option>
+        <option value="LoginGetQRPad">LoginGetQRPad（安卓 Pad）</option>
+        <option value="LoginGetQRWin">LoginGetQRWin</option>
+        <option value="LoginGetQRWinUnified">LoginGetQRWinUnified</option>
+        <option value="LoginGetQRWinUwp">LoginGetQRWinUwp</option>
+        <option value="LoginGetQRMac">LoginGetQRMac</option>
+        <option value="LoginGetQRCar">LoginGetQRCar</option>
+        <option value="LoginGetQRx">LoginGetQRx</option>
+        <option value="LoginGetQRPadx">LoginGetQRPadx</option>
+        <option value="LoginGetQRNotCode">LoginGetQRNotCode</option>
+        <option value="LoginGetQRNotCodePush">LoginGetQRNotCodePush</option>
+      </select>
+    </div>
+    <div>
+      <label>DeviceName</label>
+      <input id="deviceName" type="text" value="iPad" />
+    </div>
+  </div>
+
+  <label>DeviceID（可选，留空由服务端分配）</label>
+  <input id="deviceId" type="text" placeholder="已有设备指纹时填写" />
+
+  <label>SOCKS5 代理 host:port（可选）</label>
+  <input id="proxyIp" type="text" placeholder="1.2.3.4:29677" />
+  <div class="row">
+    <div>
+      <label>代理用户（可选）</label>
+      <input id="proxyUser" type="text" />
+    </div>
+    <div>
+      <label>代理密码（可选）</label>
+      <input id="proxyPass" type="password" />
+    </div>
+  </div>
+
+  <button type="button" id="btnQr">获取二维码</button>
+  <button type="button" id="btnPoll">开始轮询 LoginCheckQR</button>
+  <button type="button" id="btnStop">停止轮询</button>
+
+  <div id="uuidLine" class="hint"></div>
+  <img id="qr" alt="二维码" style="display:none" />
+  <div id="log"></div>
+
+  <script>
+    function baseURL() {
+      const s = document.getElementById('apiBase').value.trim();
+      if (s) return s.replace(/\/$/, '');
+      return window.location.origin;
+    }
+    function logLine(msg) {
+      const el = document.getElementById('log');
+      el.textContent += new Date().toLocaleTimeString() + ' ' + msg + '\n';
+      el.scrollTop = el.scrollHeight;
+    }
+    let pollTimer = null;
+    let currentUuid = '';
+
+    document.getElementById('btnStop').onclick = function () {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      logLine('已停止轮询');
+    };
+
+    document.getElementById('btnQr').onclick = async function () {
+      document.getElementById('log').textContent = '';
+      const ep = document.getElementById('endpoint').value;
+      const body = {
+        Proxy: {
+          ProxyIp: document.getElementById('proxyIp').value.trim(),
+          ProxyUser: document.getElementById('proxyUser').value.trim(),
+          ProxyPassword: document.getElementById('proxyPass').value
+        },
+        DeviceID: document.getElementById('deviceId').value.trim(),
+        DeviceName: document.getElementById('deviceName').value.trim() || 'iPad',
+        LoginType: ''
+      };
+      const url = baseURL() + '/api/Login/' + ep;
+      logLine('POST ' + url);
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const text = await res.text();
+        let j;
+        try { j = JSON.parse(text); } catch (e) {
+          logLine('非 JSON: ' + text.slice(0, 500));
+          return;
+        }
+        if (!j.Success || j.Code !== 1) {
+          logLine('取码失败 Code=' + j.Code + ' Message=' + (j.Message || ''));
+          logLine(text.slice(0, 800));
+          return;
+        }
+        const data = j.Data || {};
+        currentUuid = data.Uuid || '';
+        if (j.DeviceId) {
+          document.getElementById('deviceId').value = j.DeviceId;
+          logLine('已回填 DeviceId: ' + j.DeviceId);
+        }
+        document.getElementById('uuidLine').textContent = currentUuid ? ('UUID: ' + currentUuid) : '未返回 UUID';
+        const img = document.getElementById('qr');
+        if (data.QrBase64) {
+          img.src = data.QrBase64.indexOf('data:') === 0 ? data.QrBase64 : ('data:image/png;base64,' + data.QrBase64);
+          img.style.display = 'block';
+        } else if (data.QrUrl) {
+          img.src = data.QrUrl;
+          img.style.display = 'block';
+        } else {
+          img.style.display = 'none';
+          logLine('无 QrBase64 / QrUrl');
+        }
+        logLine('取码成功，请用微信扫码后点「登录」');
+      } catch (e) {
+        logLine('请求异常: ' + e);
+      }
+    };
+
+    document.getElementById('btnPoll').onclick = function () {
+      if (pollTimer) clearInterval(pollTimer);
+      if (!currentUuid) {
+        logLine('请先获取二维码得到 UUID');
+        return;
+      }
+      const checkUrl = baseURL() + '/api/Login/LoginCheckQR?uuid=' + encodeURIComponent(currentUuid);
+      async function once() {
+        try {
+          const res = await fetch(checkUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}'
+          });
+          const text = await res.text();
+          let j;
+          try { j = JSON.parse(text); } catch (e) {
+            logLine('check 非 JSON: ' + text.slice(0, 300));
+            return;
+          }
+          logLine('Code=' + j.Code + ' Success=' + j.Success + ' ' + (j.Message || ''));
+          if (j.Data && typeof j.Data === 'object') {
+            const st = j.Data.status ?? j.Data.Status;
+            if (st !== undefined) logLine('  status=' + st + ' (2=已确认)');
+          }
+          const d = j.Data;
+          if (d && typeof d === 'object') {
+            const wx = d.UserName || d.userName || d.wxid || d.Wxid;
+            if (wx) logLine('  wxid: ' + wx);
+          }
+        } catch (e) {
+          logLine('轮询异常: ' + e);
+        }
+      }
+      once();
+      pollTimer = setInterval(once, 3000);
+      logLine('每 3s 轮询 LoginCheckQR');
+    };
+  </script>
+</body>
+</html>
