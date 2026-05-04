@@ -65,5 +65,6 @@ func writeAPIKeyDeny(ctx *context.Context, msg string) {
 		"Message": msg,
 		"Data":    nil,
 	})
-	ctx.Abort(401, "API Key")
+	// 勿传入非空 body：部分 Beego 版本在已写 Body 后会因 Abort 再次处理而 panic（日志里 "error API Key"）
+	ctx.Abort(401, "")
 }

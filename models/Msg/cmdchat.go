@@ -31,12 +31,13 @@ func cmdChatEnabled() bool {
 	return err == nil && v
 }
 
-// cmdChatPrefixes 支持多个触发前缀（逗号分隔），长匹配优先。默认 #、英文句号、中文句号。
+// cmdChatPrefixes 支持多个触发前缀（英文逗号或中文逗号分隔），长匹配优先。默认 #、英文句号、中文句号。
 func cmdChatPrefixes() []string {
 	raw := strings.TrimSpace(beego.AppConfig.String("cmdchat_prefix"))
 	if raw == "" {
 		return []string{"。", ".", "#"}
 	}
+	raw = strings.ReplaceAll(raw, "，", ",")
 	var out []string
 	for _, p := range strings.Split(raw, ",") {
 		p = strings.TrimSpace(p)
