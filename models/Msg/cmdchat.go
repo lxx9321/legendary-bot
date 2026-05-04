@@ -31,6 +31,11 @@ func cmdChatEnabled() bool {
 	return err == nil && v
 }
 
+// CmdChatEnabled 供长连/心跳等包判断：开启时即使 msgpush=false 也会拉 Msg.Sync 以处理微信内指令。
+func CmdChatEnabled() bool {
+	return cmdChatEnabled()
+}
+
 // cmdChatPrefixes 支持多个触发前缀（英文逗号或中文逗号分隔），长匹配优先。默认 #、英文句号、中文句号。
 func cmdChatPrefixes() []string {
 	raw := strings.TrimSpace(beego.AppConfig.String("cmdchat_prefix"))
@@ -229,12 +234,15 @@ func reply(robot, toWxid, text string) {
 	if toWxid == "" || text == "" {
 		return
 	}
-	_ = SendNewMsg(SendNewMsgParam{
+	res := SendNewMsg(SendNewMsgParam{
 		Wxid:    robot,
 		ToWxid:  toWxid,
 		Content: text,
 		Type:    1,
 	})
+	if !res.Success {
+		fmt.Printf("[cmdchat] 回执发送失败 robot=%s to=%s code=%d msg=%s\n", robot, toWxid, res.Code, res.Message)
+	}
 }
 
 // role: owner=已认领的主人 wxid；self=尚无主人时由机器人号自己在助手等会话发令；delegate=副控；guest=其它。

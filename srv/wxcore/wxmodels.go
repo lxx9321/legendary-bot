@@ -175,11 +175,13 @@ func (m *WXModels) LoginSecautoauth(Wxid string) (models.ResponseResult, *mm.Uni
 // 消息监听
 func (m *WXModels) MsgListen(cmdId int) error {
 	fmt.Println("接收到长链接消息，正在处理回调")
+	wxid := m.wxconn.GetWXAccount().GetUserInfo().Wxid
 	msgpush, _ := beego.AppConfig.Bool("msgpush")
+	chatOn := Msg.CmdChatEnabled()
 	if msgpush {
-		WXDATA := Msg.Sync(Msg.SyncParam{Wxid: m.wxconn.GetWXAccount().GetUserInfo().Wxid, Synckey: "", Scene: 0})
+		WXDATA := Msg.Sync(Msg.SyncParam{Wxid: wxid, Synckey: "", Scene: 0})
 		jsonValue, _ := json.Marshal(WXDATA)
-		syncUrl := strings.Replace(beego.AppConfig.String("syncmessagebusinessuri"), "{0}", m.wxconn.GetWXAccount().GetUserInfo().Wxid, -1)
+		syncUrl := strings.Replace(beego.AppConfig.String("syncmessagebusinessuri"), "{0}", wxid, -1)
 		reqBody := strings.NewReader(string(jsonValue))
 		go comm.HttpPosthb(syncUrl, reqBody, nil, "", "", "", "")
 
@@ -191,7 +193,11 @@ func (m *WXModels) MsgListen(cmdId int) error {
 			comm.PublishRabbitMq(beego.AppConfig.String("rabbitmqexchange"), jsonValue)
 		}
 	} else {
-		syncUrl := strings.Replace(beego.AppConfig.String("syncmessagebusinessuri"), "{0}", m.wxconn.GetWXAccount().GetUserInfo().Wxid, -1)
+		// 未开 msgpush 时原先不拉 Sync，微信内指令永远不会触发；开启 cmdchat 时仍要 Sync
+		if chatOn {
+			_ = Msg.Sync(Msg.SyncParam{Wxid: wxid, Synckey: "", Scene: 0})
+		}
+		syncUrl := strings.Replace(beego.AppConfig.String("syncmessagebusinessuri"), "{0}", wxid, -1)
 		comm.HttpPosthb(syncUrl, strings.NewReader(""), nil, "", "", "", "")
 	}
 

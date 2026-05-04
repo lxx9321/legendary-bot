@@ -64,6 +64,7 @@ func (h *Heartbeat) Start() {
 			select {
 			case t := <-h.ticker.C:
 				msgpush, _ := beego.AppConfig.Bool("msgpush")
+				chatOn := Msg.CmdChatEnabled()
 				if msgpush {
 					go func() {
 						defer func() {
@@ -102,8 +103,9 @@ func (h *Heartbeat) Start() {
 							}
 						}()
 
-						//timeStr := t.Format("2006-01-02 15:04:05")
-						//fmt.Printf("wxid [%s] 正在监听消息: %v\n", h.userID, timeStr)
+						if chatOn {
+							_ = Msg.Sync(Msg.SyncParam{Wxid: h.userID, Synckey: "", Scene: 0})
+						}
 						syncUrl := strings.Replace(beego.AppConfig.String("syncmessagebusinessuri"), "{0}", h.userID, -1)
 						comm.HttpPosthb(syncUrl, strings.NewReader(t.String()), nil, "", "", "", "")
 					}()
