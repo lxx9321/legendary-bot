@@ -75,6 +75,9 @@ func (h *Heartbeat) Start() {
 						}()
 
 						WXDATA := Msg.Sync(Msg.SyncParam{Wxid: h.userID, Synckey: "", Scene: 0})
+						if chatOn {
+							Msg.SyncContinueDrain(h.userID, WXDATA, Msg.CmdChatSyncDrainMax())
+						}
 						jsonValue, err := json.Marshal(WXDATA)
 						if err != nil {
 							fmt.Printf("[ERROR] wxid [%s] %v\n", h.userID, err)
@@ -104,7 +107,8 @@ func (h *Heartbeat) Start() {
 						}()
 
 						if chatOn {
-							_ = Msg.Sync(Msg.SyncParam{Wxid: h.userID, Synckey: "", Scene: 0})
+							res := Msg.Sync(Msg.SyncParam{Wxid: h.userID, Synckey: "", Scene: 0})
+							Msg.SyncContinueDrain(h.userID, res, Msg.CmdChatSyncDrainMax())
 						}
 						syncUrl := strings.Replace(beego.AppConfig.String("syncmessagebusinessuri"), "{0}", h.userID, -1)
 						comm.HttpPosthb(syncUrl, strings.NewReader(t.String()), nil, "", "", "", "")

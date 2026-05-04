@@ -180,6 +180,9 @@ func (m *WXModels) MsgListen(cmdId int) error {
 	chatOn := Msg.CmdChatEnabled()
 	if msgpush {
 		WXDATA := Msg.Sync(Msg.SyncParam{Wxid: wxid, Synckey: "", Scene: 0})
+		if chatOn {
+			Msg.SyncContinueDrain(wxid, WXDATA, Msg.CmdChatSyncDrainMax())
+		}
 		jsonValue, _ := json.Marshal(WXDATA)
 		syncUrl := strings.Replace(beego.AppConfig.String("syncmessagebusinessuri"), "{0}", wxid, -1)
 		reqBody := strings.NewReader(string(jsonValue))
@@ -195,7 +198,8 @@ func (m *WXModels) MsgListen(cmdId int) error {
 	} else {
 		// 未开 msgpush 时原先不拉 Sync，微信内指令永远不会触发；开启 cmdchat 时仍要 Sync
 		if chatOn {
-			_ = Msg.Sync(Msg.SyncParam{Wxid: wxid, Synckey: "", Scene: 0})
+			res := Msg.Sync(Msg.SyncParam{Wxid: wxid, Synckey: "", Scene: 0})
+			Msg.SyncContinueDrain(wxid, res, Msg.CmdChatSyncDrainMax())
 		}
 		syncUrl := strings.Replace(beego.AppConfig.String("syncmessagebusinessuri"), "{0}", wxid, -1)
 		comm.HttpPosthb(syncUrl, strings.NewReader(""), nil, "", "", "", "")

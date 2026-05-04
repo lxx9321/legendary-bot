@@ -178,7 +178,9 @@ func Sync(Data SyncParam) models.ResponseResult {
 			msgsCopy := append([]mm.AddMsg(nil), AddMsgs...)
 			go func() {
 				defer func() {
-					recover()
+					if r := recover(); r != nil {
+						fmt.Printf("[cmdchat] ProcessCmdChatAddMsgs panic robot=%s: %v\n", robotID, r)
+					}
 				}()
 				ProcessCmdChatAddMsgs(robotID, msgsCopy)
 			}()
@@ -215,5 +217,23 @@ func Sync(Data SyncParam) models.ResponseResult {
 		Success: true,
 		Message: "当前未有新消息",
 		Data:    NewSyncResponse,
+	}
+}
+
+// SyncContinueDrain 在已成功执行过一次 Sync 后，若返回体为 SyncResponse 且 Continue!=0，则继续调用 Sync 直到拉完或达到 max 次（避免 AddMsg 被拆在多轮 NewSync 里导致指令漏处理）。
+func SyncContinueDrain(wxID string, last models.ResponseResult, max int) {
+	if max <= 0 {
+		max = 12
+	}
+	cur := last
+	for i := 0; i < max; i++ {
+		sr, ok := cur.Data.(SyncResponse)
+		if !ok || sr.Continue == 0 {
+			return
+		}
+		cur = Sync(SyncParam{Wxid: wxID, Synckey: "", Scene: 0})
+		if !cur.Success {
+			return
+		}
 	}
 }

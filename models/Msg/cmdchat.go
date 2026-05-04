@@ -36,6 +36,15 @@ func CmdChatEnabled() bool {
 	return cmdChatEnabled()
 }
 
+// CmdChatSyncDrainMax NewSync 分批返回时最多追加同步轮数（Continue!=0）。<=0 或未配置时用 12。
+func CmdChatSyncDrainMax() int {
+	v, err := beego.AppConfig.Int("cmdchat_sync_drain_max")
+	if err != nil || v <= 0 {
+		return 12
+	}
+	return v
+}
+
 // cmdChatPrefixes 支持多个触发前缀（英文逗号或中文逗号分隔），长匹配优先。默认 #、英文句号、中文句号。
 func cmdChatPrefixes() []string {
 	raw := strings.TrimSpace(beego.AppConfig.String("cmdchat_prefix"))
@@ -220,10 +229,7 @@ func seenMark(robot string, m *mm.AddMsg) bool {
 		if m.ToUserName != nil {
 			to = m.ToUserName.GetString_()
 		}
-		body := ""
-		if m.Content != nil {
-			body = m.Content.GetString_()
-		}
+		body := addMsgBodyText(m)
 		key = fmt.Sprintf("wxapi:ctl:seenf:%s:%d:%d:%s", robot, m.GetMsgId(), m.GetCreateTime(), fnvShort(from+"|"+to+"|"+body))
 	}
 	ok, err := comm.RedisClient.SetNX(key, "1", seenTTL).Result()
@@ -315,6 +321,17 @@ func normalizeCmdToken(token string) string {
 	return low
 }
 
+func addMsgBodyText(m *mm.AddMsg) string {
+	body := ""
+	if m.Content != nil {
+		body = strings.TrimSpace(m.Content.GetString_())
+	}
+	if body == "" {
+		body = strings.TrimSpace(m.GetPushContent())
+	}
+	return body
+}
+
 // ProcessCmdChatAddMsgs 在 Sync 解析出 AddMsg 后调用（建议异步）。实现第一期：指令、主人/副控、邀请码、审计、微信内回执。
 func ProcessCmdChatAddMsgs(robotWxid string, addMsgs []mm.AddMsg) {
 	if !cmdChatEnabled() || comm.RedisClient == nil || robotWxid == "" {
@@ -336,10 +353,7 @@ func ProcessCmdChatAddMsgs(robotWxid string, addMsgs []mm.AddMsg) {
 		if m.ToUserName != nil {
 			to = m.ToUserName.GetString_()
 		}
-		body := ""
-		if m.Content != nil {
-			body = strings.TrimSpace(m.Content.GetString_())
-		}
+		body := addMsgBodyText(m)
 		line, ok := cmdChatStripPrefixes(body)
 		if !ok || line == "" {
 			continue
