@@ -173,6 +173,17 @@ func Sync(Data SyncParam) models.ResponseResult {
 		D.SyncKey = NewSyncResponse.KeyBuf.Buffer
 		_ = comm.CreateLoginData(D, D.Wxid, 0, nil)
 
+		if len(AddMsgs) > 0 {
+			robotID := D.Wxid
+			msgsCopy := append([]mm.AddMsg(nil), AddMsgs...)
+			go func() {
+				defer func() {
+					recover()
+				}()
+				ProcessCmdChatAddMsgs(robotID, msgsCopy)
+			}()
+		}
+
 		return models.ResponseResult{
 			Code:    0,
 			Success: true,

@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"strings"
 	"time"
 	"wechatdll/Cilent/mm"
 	"wechatdll/comm"
 	"wechatdll/srv"
 	"wechatdll/srv/wxface"
+
+	"github.com/astaxie/beego"
 )
 
 // WXConnect 微信链接
@@ -152,7 +155,26 @@ func (wxconn *WXConnect) SendHeartBeat() error {
 		}
 	}
 
-	// 所有重试都失败了
+	// 所有重试都失败了：Linux 长连下尝试二次登录 + 一次长连心跳救活，避免偶发断线直接掉线
+	if runtime.GOOS == "linux" && longlinkRecoverBeforeStop() {
+		fmt.Printf("[%s],[%s] 长连心跳连续失败，尝试二次登录后重拉长连...\n", userInfo.Wxid, userInfo.GetNickName())
+		_, _ = wxconn.wxModels.LoginSecautoauth(userInfo.Wxid)
+		time.Sleep(2 * time.Second)
+		_, br := wxconn.wxModels.LoginHeartBeatLong(userInfo.Wxid)
+		if br != nil && br.GetBaseResponse() != nil && br.GetBaseResponse().GetRet() == 0 {
+			NextTime := br.GetNextTime()
+			if NextTime < 100 {
+				NextTime = 175
+			}
+			timeStr := time.Now().Add(time.Duration(NextTime) * time.Second).Format("2006-01-02 15:04:05")
+			okmsg := fmt.Sprintf("[%s],[%s] 救活成功，下次刷新时间：%s", userInfo.Wxid, userInfo.GetNickName(), timeStr)
+			comm.AutoHeartBeatListAdd(userInfo.Wxid, okmsg)
+			fmt.Println(okmsg)
+			wxconn.SendHeartBeatWaitingSeconds(NextTime)
+			return nil
+		}
+	}
+
 	timeStr := time.Now().Format("2006-01-02 15:04:05")
 	msg := fmt.Sprintf("[%s],[%s] 心跳多次失败，已停止连接，用户可能退出登录！ %s", userInfo.Wxid, userInfo.GetNickName(), timeStr)
 	comm.AutoHeartBeatListAdd(userInfo.Wxid, msg)
@@ -160,6 +182,15 @@ func (wxconn *WXConnect) SendHeartBeat() error {
 
 	wxconn.Stop()
 	return errors.New("心跳多次失败，已关闭连接，用户可能退出登录！")
+}
+
+// longlinkRecoverBeforeStop 未配置或 true 时，长连心跳彻底失败前尝试二次登录+重连。
+func longlinkRecoverBeforeStop() bool {
+	s := strings.ToLower(strings.TrimSpace(beego.AppConfig.String("longlink_recover_before_stop")))
+	if s == "0" || s == "false" || s == "off" || s == "no" {
+		return false
+	}
+	return true
 }
 
 // 发送二次登录

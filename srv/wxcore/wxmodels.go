@@ -41,8 +41,42 @@ func (m *WXModels) LoginHeartBeat(Wxid string) (models.ResponseResult, *mm.Heart
 	return Login.HeartBeat(Wxid)
 }
 
-// 长连接心跳接口
+// 长连接心跳接口（含自动重试：建连/发包失败会 Remove 后退避再试，减轻瞬时断线影响）
 func (m *WXModels) LoginHeartBeatLong(Wxid string) (models.ResponseResult, *mm.HeartBeatResponse) {
+	retries := 3
+	if v, err := beego.AppConfig.Int("longlink_heartbeat_retries"); err == nil && v > 0 {
+		retries = v
+	}
+	delayMs := 800
+	if v, err := beego.AppConfig.Int("longlink_heartbeat_retry_delay_ms"); err == nil && v >= 0 {
+		delayMs = v
+	}
+	delay := time.Duration(delayMs) * time.Millisecond
+
+	var lastMsg string
+	for attempt := 1; attempt <= retries; attempt++ {
+		if attempt > 1 {
+			time.Sleep(delay)
+			fmt.Printf("[LoginHeartBeatLong] wxid=%s 第 %d/%d 次重试（长连自动重连）...\n", Wxid, attempt, retries)
+		}
+		res, hr := m.loginHeartBeatLongOnce()
+		if res.Success && hr != nil && hr.GetBaseResponse() != nil && hr.GetBaseResponse().GetRet() == 0 {
+			return res, hr
+		}
+		lastMsg = res.Message
+		if hr != nil && hr.GetBaseResponse() != nil {
+			lastMsg = fmt.Sprintf("%s ret=%d", lastMsg, hr.GetBaseResponse().GetRet())
+		}
+	}
+	return models.ResponseResult{
+		Code:    -8,
+		Success: false,
+		Message: fmt.Sprintf("长连心跳失败（已重试 %d 次）：%s", retries, lastMsg),
+		Data:    nil,
+	}, nil
+}
+
+func (m *WXModels) loginHeartBeatLongOnce() (models.ResponseResult, *mm.HeartBeatResponse) {
 	tcpManager, err := TcpPoll.GetTcpManager()
 	if err != nil {
 		return models.ResponseResult{
@@ -53,7 +87,6 @@ func (m *WXModels) LoginHeartBeatLong(Wxid string) (models.ResponseResult, *mm.H
 		}, nil
 	}
 	userInfo := m.wxconn.GetWXAccount().GetUserInfo()
-	// 从缓存获取
 	D, err := comm.GetLoginata(userInfo.Wxid, nil)
 	if err != nil || D == nil || D.Wxid == "" {
 		errorMsg := fmt.Sprintf("LoginHeartBeatLong 出错了: %v [%v]", "未找到登录信息", userInfo.Wxid)
@@ -90,7 +123,6 @@ func (m *WXModels) LoginHeartBeatLong(Wxid string) (models.ResponseResult, *mm.H
 
 	reqdata, err := proto.Marshal(req)
 	sendData := Algorithm.Pack(reqdata, 518, D.Uin, D.Sessionkey, D.Cooike, D.Clientsessionkey, D.RsaPublicKey, 5, false)
-	// mmtls发包
 	cmdId := 238
 	protobufdata, err := client.MmtlsSend(sendData, cmdId, "238心跳")
 	if err != nil {
@@ -102,7 +134,6 @@ func (m *WXModels) LoginHeartBeatLong(Wxid string) (models.ResponseResult, *mm.H
 			Data:    nil,
 		}, nil
 	}
-	//解包
 	HeartBeatResponse := mm.HeartBeatResponse{}
 	err = proto.Unmarshal(*protobufdata, &HeartBeatResponse)
 	if err != nil {
@@ -113,6 +144,19 @@ func (m *WXModels) LoginHeartBeatLong(Wxid string) (models.ResponseResult, *mm.H
 			Message: fmt.Sprintf("反序列化失败：%v", err.Error()),
 			Data:    nil,
 		}, nil
+	}
+	if br := HeartBeatResponse.GetBaseResponse(); br != nil && br.GetRet() != 0 {
+		tcpManager.Remove(client)
+		em := ""
+		if br.GetErrMsg() != nil {
+			em = br.GetErrMsg().GetString_()
+		}
+		return models.ResponseResult{
+			Code:    -8,
+			Success: false,
+			Message: fmt.Sprintf("心跳业务失败：%s (ret=%d)", em, br.GetRet()),
+			Data:    nil,
+		}, &HeartBeatResponse
 	}
 
 	return models.ResponseResult{
