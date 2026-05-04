@@ -233,7 +233,11 @@ func seenMark(robot string, m *mm.AddMsg) bool {
 		key = fmt.Sprintf("wxapi:ctl:seenf:%s:%d:%d:%s", robot, m.GetMsgId(), m.GetCreateTime(), fnvShort(from+"|"+to+"|"+body))
 	}
 	ok, err := comm.RedisClient.SetNX(key, "1", seenTTL).Result()
-	return err == nil && ok
+	if err != nil {
+		fmt.Printf("[cmdchat] seenMark Redis 错误 robot=%s key=%s err=%v\n", robot, key, err)
+		return false
+	}
+	return ok
 }
 
 func reply(robot, toWxid, text string) {
@@ -342,9 +346,6 @@ func ProcessCmdChatAddMsgs(robotWxid string, addMsgs []mm.AddMsg) {
 		if m.GetMsgType() != 1 {
 			continue
 		}
-		if !seenMark(robotWxid, m) {
-			continue
-		}
 		from := ""
 		if m.FromUserName != nil {
 			from = m.FromUserName.GetString_()
@@ -359,6 +360,10 @@ func ProcessCmdChatAddMsgs(robotWxid string, addMsgs []mm.AddMsg) {
 			continue
 		}
 		if !cmdChatSessionAllowed(robotWxid, from, to) {
+			continue
+		}
+		// 须在确认是指令且会话合法后再去重：若先 seenMark，首轮 Sync 正文为空会占坑，后续带正文的同一条 AddMsg 会被永久跳过。
+		if !seenMark(robotWxid, m) {
 			continue
 		}
 		replyTo := from
