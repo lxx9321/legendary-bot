@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 	"wechatdll/Algorithm"
@@ -482,7 +483,7 @@ func (c *LoginController) Data62SMSVerify() {
 
 	// 验证短信
 	verifyUrl := strings.Replace(reqdata.Url, "[[[verifycode]]]", reqdata.Sms, -1)
-	verifyUrl = strings.Replace(verifyUrl, "[[[currentMilliseStamp]]]", string(time.Now().Unix()), -1)
+	verifyUrl = strings.Replace(verifyUrl, "[[[currentMilliseStamp]]]", strconv.FormatInt(time.Now().Unix(), 10), -1)
 	headers := &map[string]string{
 		"Cookie": reqdata.Cookie,
 	}
@@ -600,7 +601,7 @@ func (c *LoginController) Data62QRCodeVerify() {
 
 	// 验证短信
 	verifyUrl := reqdata.Url
-	verifyUrl = strings.Replace(verifyUrl, "[[[currentMilliseStamp]]]", string(time.Now().Unix()), -1)
+	verifyUrl = strings.Replace(verifyUrl, "[[[currentMilliseStamp]]]", strconv.FormatInt(time.Now().Unix(), 10), -1)
 	res := comm.HttpGet1(verifyUrl, nil, comm.GenDefaultIpadUA(), reqdata.Proxy)
 	WXDATA := models.ResponseResult{
 		Code:    0,

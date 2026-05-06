@@ -158,7 +158,7 @@
       letter-spacing: 0.02em;
     }
     label:first-of-type { margin-top: 0; }
-    input, select {
+    input, select, textarea {
       width: 100%;
       margin-top: 8px;
       padding: 12px 14px;
@@ -175,6 +175,12 @@
     input:focus, select:focus {
       border-color: rgba(46, 230, 201, 0.45);
       box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+    textarea {
+      min-height: 96px;
+      resize: vertical;
+      font-family: var(--mono);
+      line-height: 1.45;
     }
     select {
       cursor: pointer;
@@ -389,6 +395,44 @@
             <button type="button" id="btnAwaken">唤醒登录</button>
           </div>
         </div>
+
+        <div class="divider">
+          <h2>62 数据登录测试</h2>
+          <p class="sub-desc">
+            用你自己账号已合法保存的 62 数据测试登录。遇到新设备验证时，先申请短信或二维码验证，再提交验证码或检查二维码验证结果。
+          </p>
+          <div class="row">
+            <div>
+              <label for="data62User">账号</label>
+              <input id="data62User" type="text" placeholder="微信号 / 手机号 / 登录账号" autocomplete="off" />
+            </div>
+            <div>
+              <label for="data62Pass">密码</label>
+              <input id="data62Pass" type="password" autocomplete="off" />
+            </div>
+          </div>
+          <label for="data62Text">62 数据</label>
+          <textarea id="data62Text" placeholder="已有 62 数据时粘贴；留空则由接口按现有逻辑生成/返回"></textarea>
+          <div class="actions actions-secondary">
+            <button type="button" id="btnData62Login">62 登录</button>
+            <button type="button" id="btnData62SmsApply">申请短信验证</button>
+            <button type="button" id="btnData62QrApply">申请二维码验证</button>
+          </div>
+          <div class="row">
+            <div>
+              <label for="data62Sms">短信验证码</label>
+              <input id="data62Sms" type="text" inputmode="numeric" autocomplete="off" />
+            </div>
+            <div>
+              <label for="data62VerifyUrl">验证 URL</label>
+              <input id="data62VerifyUrl" type="text" placeholder="申请验证后自动填入，也可手动粘贴" />
+            </div>
+          </div>
+          <div class="actions actions-secondary">
+            <button type="button" id="btnData62SmsVerify">提交短信验证</button>
+            <button type="button" id="btnData62QrVerify">检查二维码验证</button>
+          </div>
+        </div>
       </section>
 
       <section class="card side-card">
@@ -462,6 +506,8 @@
     }
     let pollTimer = null;
     let currentUuid = '';
+    let data62SmsState = null;
+    let data62QrState = null;
 
     document.getElementById('btnStop').onclick = function () {
       if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
@@ -578,7 +624,7 @@
         var j;
         try { j = JSON.parse(text); } catch (e) {
           logLine('非 JSON: ' + text.slice(0, 600));
-          return;
+          return null;
         }
         logLine('Code=' + j.Code + ' Success=' + j.Success + ' ' + (j.Message || ''));
         if (j.Data != null && typeof j.Data === 'object') {
@@ -586,8 +632,63 @@
         } else if (j.Data != null && typeof j.Data === 'string') {
           logLine('Data: ' + j.Data.slice(0, 400));
         }
+        if (j.Data62) {
+          var d62 = document.getElementById('data62Text');
+          if (d62 && !d62.value.trim()) d62.value = j.Data62;
+          logLine('Data62 已返回，可用于后续重试/验证');
+        }
+        return j;
       } catch (e) {
         logLine('请求异常: ' + e);
+        return null;
+      }
+    }
+
+    function data62Body() {
+      return {
+        UserName: document.getElementById('data62User').value.trim(),
+        Password: document.getElementById('data62Pass').value,
+        Data62: document.getElementById('data62Text').value.trim(),
+        DeviceName: document.getElementById('deviceName').value.trim() || 'iPad',
+        Proxy: proxyFromForm()
+      };
+    }
+
+    function data62Ready() {
+      var b = data62Body();
+      if (!b.UserName || !b.Password) {
+        logLine('请先填写 62 登录账号和密码');
+        return false;
+      }
+      return true;
+    }
+
+    function rememberVerifyState(kind, j) {
+      if (!j || !j.Data || typeof j.Data !== 'object') return;
+      var data = j.Data;
+      if (data.CheckUrl) document.getElementById('data62VerifyUrl').value = data.CheckUrl;
+      if (j.Data62) document.getElementById('data62Text').value = j.Data62;
+      if (kind === 'sms') {
+        data62SmsState = {
+          Url: data.CheckUrl || '',
+          AgainUrl: data.AgainUrl || '',
+          Cookie: data.Cookie || '',
+          Proxy: proxyFromForm()
+        };
+        logLine('已保存短信验证上下文');
+      } else if (kind === 'qr') {
+        data62QrState = {
+          Url: data.CheckUrl || '',
+          QrUrl: data.QrUrl || '',
+          Proxy: proxyFromForm()
+        };
+        if (data.QrUrl) {
+          var img = document.getElementById('qr');
+          img.src = data.QrUrl;
+          setQrVisible(true);
+          logLine('二维码验证图已显示，请扫码完成验证后点“检查二维码验证”');
+        }
+        logLine('已保存二维码验证上下文');
       }
     }
 
@@ -611,6 +712,50 @@
         Wxid: wxid,
         Proxy: proxyFromForm(),
         ProxyString: ''
+      });
+    };
+
+    document.getElementById('btnData62Login').onclick = async function () {
+      if (!data62Ready()) return;
+      await postLoginJson('Data62Login', data62Body());
+    };
+
+    document.getElementById('btnData62SmsApply').onclick = async function () {
+      if (!data62Ready()) return;
+      var j = await postLoginJson('Data62SMSApply', data62Body());
+      rememberVerifyState('sms', j);
+    };
+
+    document.getElementById('btnData62QrApply').onclick = async function () {
+      if (!data62Ready()) return;
+      var j = await postLoginJson('Data62QRCodeApply', data62Body());
+      rememberVerifyState('qr', j);
+    };
+
+    document.getElementById('btnData62SmsVerify').onclick = async function () {
+      var sms = document.getElementById('data62Sms').value.trim();
+      var url = document.getElementById('data62VerifyUrl').value.trim();
+      if (!sms || !url) {
+        logLine('请先申请短信验证，并填写短信验证码');
+        return;
+      }
+      await postLoginJson('Data62SMSVerify', {
+        Url: url,
+        Cookie: data62SmsState ? data62SmsState.Cookie : '',
+        Sms: sms,
+        Proxy: proxyFromForm()
+      });
+    };
+
+    document.getElementById('btnData62QrVerify').onclick = async function () {
+      var url = document.getElementById('data62VerifyUrl').value.trim();
+      if (!url) {
+        logLine('请先申请二维码验证');
+        return;
+      }
+      await postLoginJson('Data62QRCodeVerify', {
+        Url: url,
+        Proxy: proxyFromForm()
       });
     };
   </script>
