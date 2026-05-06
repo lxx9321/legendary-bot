@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 	"wechatdll/comm"
@@ -309,13 +310,26 @@ func WeChatQrCode(Data string, ua string, proxyAddr string, proxyUser string, pr
 	comm.HttpGet("https://shminorshort.weixin.qq.com/security/readtemplate?t=simple_auth/w_qrcode_show&&ticket="+ticket+"&wechat_real_lang=zh_CN&idc="+idc+"&qrcliticket="+qrcodeticket, headers, ua, proxyAddr, proxyUser, proxyPass)
 	qrCodeUUIDStr := comm.HttpGet("https://login.weixin.qq.com/jslogin?appid=wx_newdev_verify&t=simple_auth/w_qrcode_show&&ticket="+ticket+"&wechat_real_lang=zh_CN&idc="+idc+"&qrcliticket="+qrcodeticket, headers, ua, proxyAddr, proxyUser, proxyPass)
 
-	QrUUID := GetBetweenStr(qrCodeUUIDStr, "QRLogin.uuid = \"", "\";")
+	QrUUID := extractQRLoginUUID(qrCodeUUIDStr)
+	if QrUUID == "" {
+		fmt.Printf("[Data62QRCodeApply] jslogin 未返回 uuid: %s\n", qrCodeUUIDStr)
+		return "", ""
+	}
 
 	QrUrl = "https://login.weixin.qq.com/qrcode/" + QrUUID + "?appid=wx_newdev_verify&t=simple_auth/w_qrcode_show&&ticket=" + ticket + "&wechat_real_lang=zh_CN&idc=" + idc + "&qrcliticket=" + qrcodeticket
 	checkUrl = "https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login?uuid=" + QrUUID + "&r=[[[currentMilliseStamp]]]&t=simple_auth/w_qrcode_show&&ticket=" + ticket + "&wechat_real_lang=zh_CN&idc=" + idc + "&qrcliticket=" + qrcodeticket
 
 	return QrUrl, checkUrl
 
+}
+
+func extractQRLoginUUID(s string) string {
+	re := regexp.MustCompile(`QRLogin\.uuid\s*=\s*"([^"]+)"`)
+	m := re.FindStringSubmatch(s)
+	if len(m) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(m[1])
 }
 
 func WeChatQrCode1(Data string, ua string, proxy models.ProxyInfo) (QrUrl, checkUrl string) {

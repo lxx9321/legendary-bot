@@ -563,6 +563,18 @@ func (c *LoginController) Data62QRCodeApply() {
 	message, transed := WXDATA.Data.(mm.UnifyAuthResponse)
 	if transed && strings.Index(message.GetBaseResponse().GetErrMsg().GetString_(), "&ticket=") >= 0 {
 		qrUrl, checkUrl := Login.WeChatQrCode1(message.GetBaseResponse().GetErrMsg().GetString_(), comm.GenDefaultIpadUA(), reqdata.Proxy)
+		if qrUrl == "" || checkUrl == "" {
+			WXDATA = models.ResponseResult{
+				Code:    -8,
+				Success: false,
+				Message: "二维码验证申请失败：未获取到 QR UUID，请稍后重试或改用短信验证",
+				Data:    nil,
+				Data62:  reqdata.Data62,
+			}
+			c.Data["json"] = &WXDATA
+			c.ServeJSON()
+			return
+		}
 		WXDATA = models.ResponseResult{
 			Code:    0,
 			Success: true,
