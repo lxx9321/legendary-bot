@@ -504,6 +504,17 @@
       el.textContent += new Date().toLocaleTimeString() + ' ' + msg + '\n';
       el.scrollTop = el.scrollHeight;
     }
+    function nestedBaseResponse(data) {
+      if (!data || typeof data !== 'object') return null;
+      return data.baseResponse || data.BaseResponse || data.BaseResponse_ || null;
+    }
+    function baseResponseMessage(br) {
+      if (!br || typeof br !== 'object') return '';
+      var em = br.errMsg || br.ErrMsg || br.Error;
+      if (!em) return '';
+      if (typeof em === 'string') return em;
+      return em.string || em.String || '';
+    }
     let pollTimer = null;
     let currentUuid = '';
     let data62SmsState = null;
@@ -592,6 +603,18 @@
           if (j.Data && typeof j.Data === 'object') {
             const st = j.Data.status ?? j.Data.Status;
             if (st !== undefined) logLine('  status=' + st + ' (2=已确认)');
+            const br = nestedBaseResponse(j.Data);
+            if (br) {
+              const ret = br.ret ?? br.Ret;
+              const msg = baseResponseMessage(br);
+              if (ret !== undefined) logLine('  ret=' + ret);
+              if (msg) logLine('  server: ' + msg.slice(0, 260));
+              if (ret === -100 || msg.indexOf('版本过低') >= 0) {
+                logLine('当前取码端点的客户端版本过低。请换 iPad/Pad/Win 端点，或更新该端点的协议版本参数。');
+                if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+                return;
+              }
+            }
           }
           const d = j.Data;
           if (d && typeof d === 'object') {
