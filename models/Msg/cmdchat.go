@@ -95,7 +95,7 @@ func cmdChatShortPrefix() string {
 func cmdChatSessions() map[string]bool {
 	raw := strings.TrimSpace(beego.AppConfig.String("cmdchat_sessions"))
 	if raw == "" {
-		return map[string]bool{"pm": true, "filehelper": true}
+		return map[string]bool{"pm": true}
 	}
 	m := make(map[string]bool)
 	for _, p := range strings.Split(raw, ",") {
@@ -105,9 +105,17 @@ func cmdChatSessions() map[string]bool {
 		}
 	}
 	if len(m) == 0 {
-		return map[string]bool{"pm": true, "filehelper": true}
+		return map[string]bool{"pm": true}
 	}
 	return m
+}
+
+func cmdChatOwnerCode() string {
+	v := strings.TrimSpace(beego.AppConfig.String("cmdchat_owner_code"))
+	if v == "" {
+		return "888"
+	}
+	return strings.ToUpper(v)
 }
 
 func isGroupChat(from, to string) bool {
@@ -336,6 +344,32 @@ func addMsgBodyText(m *mm.AddMsg) string {
 	return body
 }
 
+func parseCmdLine(body string) (rest string, ok bool) {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return "", false
+	}
+	if rest, ok := cmdChatStripPrefixes(body); ok && rest != "" {
+		return rest, true
+	}
+	lower := strings.ToLower(body)
+	if strings.HasPrefix(lower, "bind#") {
+		code := strings.TrimSpace(body[len("bind#"):])
+		if code == "" {
+			return "bind", true
+		}
+		return "bind " + code, true
+	}
+	if strings.HasPrefix(body, "绑定#") {
+		code := strings.TrimSpace(strings.TrimPrefix(body, "绑定#"))
+		if code == "" {
+			return "绑定", true
+		}
+		return "绑定 " + code, true
+	}
+	return "", false
+}
+
 // ProcessCmdChatAddMsgs 在 Sync 解析出 AddMsg 后调用（建议异步）。实现第一期：指令、主人/副控、邀请码、审计、微信内回执。
 func ProcessCmdChatAddMsgs(robotWxid string, addMsgs []mm.AddMsg) {
 	if !cmdChatEnabled() || comm.RedisClient == nil || robotWxid == "" {
@@ -355,7 +389,7 @@ func ProcessCmdChatAddMsgs(robotWxid string, addMsgs []mm.AddMsg) {
 			to = m.ToUserName.GetString_()
 		}
 		body := addMsgBodyText(m)
-		line, ok := cmdChatStripPrefixes(body)
+		line, ok := parseCmdLine(body)
 		if !ok || line == "" {
 			continue
 		}
@@ -470,6 +504,15 @@ func cmdInvite(robot, sender, r string) string {
 		return "仅主人可发「邀请」。若主人是其它微信号，请在私聊本机器人里操作。"
 	}
 	code := genInviteCode()
+	if getOwner(robot) == "" && code == cmdChatOwnerCode() {
+		if sender == robot {
+			return "涓嶈兘浣跨敤鏈哄櫒浜哄彿鑷韩缁戝畾銆?
+		}
+		if err := setOwner(robot, sender); err != nil {
+			return "缁戝畾澶辫触锛? + err.Error()
+		}
+		return "绑定成功：你已成为主人。"
+	}
 	key := fmt.Sprintf(redisInviteFmt, robot, code)
 	secs := defaultInviteTTLSecs
 	if v, err := beego.AppConfig.Int("cmdchat_invite_ttl_secs"); err == nil && v > 0 {
@@ -485,7 +528,7 @@ func cmdBind(robot, sender, r string, args []string) string {
 	if len(args) < 1 {
 		return "用法：" + cmdChatShortPrefix() + "绑定 <邀请码>"
 	}
-	code := strings.ToUpper(strings.TrimSpace(args[0]))
+	code := strings.ToUpper(strings.TrimSpace(strings.Join(args, "")))
 	if len(code) < 4 || len(code) > 16 {
 		return "邀请码格式不正确。"
 	}
