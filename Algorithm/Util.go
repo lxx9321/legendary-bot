@@ -82,8 +82,8 @@ var NotOsVersion = "11.5.2"
 
 var MacDeviceType = "UnifiedPCMac 15 arm64"
 var MacDeviceName = "MacBook Pro"
-var MacModel = "MacBookPro16,1"
-var MacOsVersion = "11.5.2"
+var MacModel = "Mac OS X 10_15_7"
+var MacOsVersion = "10.15.6"
 
 // 版本号
 // var IPadVersion = int32(0x18003926) 0x18003C20
@@ -107,9 +107,9 @@ var WinUnifiedVersion = uint32(0xf254171e) //WinUnified 0x6400010D
 
 var CarVersion = int32(0x2100091B) //车载 0x21000B1B 0x2100091B 0x28002b38 0x21000D17
 
-var MacVersion = int32(0x14010100) //mac 0x1308080B 0x1308090B 0x13080a10
+var MacVersion = int32(0x040101f0) // mac test params from wechat-v864
 
-var Md5OfMachOHeader = string("cebf0cfe3765382cb39801ac91c05126")
+var Md5OfMachOHeader = string("d05a80a94b6c2e3c31424403437b6e18")
 
 //var Md5OfMachOHeader = string("d55ce16228afb0ea5205380af376761e")
 
