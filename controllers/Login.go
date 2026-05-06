@@ -381,8 +381,9 @@ func (c *LoginController) Data62SMSApply() {
 
 	// 二次验证使用短信验证
 	message, transed := WXDATA.Data.(mm.UnifyAuthResponse)
-	if transed && strings.Index(message.GetBaseResponse().GetErrMsg().GetString_(), "&ticket=") >= 0 {
-		checkUrl, againUrl, setCookie := Login.WechatSMS1(message.GetBaseResponse().GetErrMsg().GetString_(), comm.GenDefaultIpadUA(), reqdata.Proxy)
+	errMsg := message.GetBaseResponse().GetErrMsg().GetString_()
+	if transed && strings.Contains(errMsg, "ticket=") && !strings.Contains(errMsg, "secticket=") {
+		checkUrl, againUrl, setCookie := Login.WechatSMS1(errMsg, comm.GenDefaultIpadUA(), reqdata.Proxy)
 		WXDATA = models.ResponseResult{
 			Code:    0,
 			Success: true,
@@ -561,8 +562,9 @@ func (c *LoginController) Data62QRCodeApply() {
 
 	// 二次验证使用短信验证
 	message, transed := WXDATA.Data.(mm.UnifyAuthResponse)
-	if transed && strings.Index(message.GetBaseResponse().GetErrMsg().GetString_(), "&ticket=") >= 0 {
-		qrUrl, checkUrl := Login.WeChatQrCode1(message.GetBaseResponse().GetErrMsg().GetString_(), comm.GenDefaultIpadUA(), reqdata.Proxy)
+	errMsg := message.GetBaseResponse().GetErrMsg().GetString_()
+	if transed && strings.Contains(errMsg, "ticket=") && !strings.Contains(errMsg, "secticket=") {
+		qrUrl, checkUrl := Login.WeChatQrCode1(errMsg, comm.GenDefaultIpadUA(), reqdata.Proxy)
 		if qrUrl == "" || checkUrl == "" {
 			WXDATA = models.ResponseResult{
 				Code:    -8,

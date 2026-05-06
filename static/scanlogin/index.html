@@ -666,6 +666,10 @@
     function rememberVerifyState(kind, j) {
       if (!j || !j.Data || typeof j.Data !== 'object') return;
       var data = j.Data;
+      if (!data.CheckUrl && !data.QrUrl) {
+        logLine('未返回可用验证地址；如果日志里出现 w_tcaptcha/secticket，这是安全滑块验证，不是二维码验证。');
+        return;
+      }
       if (data.CheckUrl) document.getElementById('data62VerifyUrl').value = data.CheckUrl;
       if (j.Data62) document.getElementById('data62Text').value = j.Data62;
       if (kind === 'sms') {
