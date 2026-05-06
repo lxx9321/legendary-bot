@@ -249,6 +249,16 @@
       color: var(--muted);
       line-height: 1.55;
     }
+    .field-note {
+      margin: 8px 0 0;
+      font-size: 0.76rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .field-note code {
+      font-family: var(--mono);
+      color: var(--accent);
+    }
     .actions-secondary { margin-top: 14px; }
     .side-card { position: sticky; top: 20px; }
     .qr-panel {
@@ -357,18 +367,9 @@
         <label for="deviceId">DeviceID（可选）</label>
         <input id="deviceId" type="text" placeholder="已有设备指纹时填写" />
 
-        <label for="proxyIp">SOCKS5 代理 host:port（可选）</label>
-        <input id="proxyIp" type="text" placeholder="1.2.3.4:29677" />
-        <div class="row">
-          <div>
-            <label for="proxyUser">代理用户（可选）</label>
-            <input id="proxyUser" type="text" />
-          </div>
-          <div>
-            <label for="proxyPass">代理密码（可选）</label>
-            <input id="proxyPass" type="password" />
-          </div>
-        </div>
+        <label for="proxyIp">SOCKS5 代理（可选）</label>
+        <input id="proxyIp" type="text" placeholder="1.2.3.4:29677 或 1.2.3.4:29677 user pass" />
+        <p class="field-note">如有账号密码，请按 <code>host:port user pass</code> 格式输入。</p>
 
         <div class="actions">
           <button type="button" id="btnQr">获取二维码</button>
@@ -446,10 +447,12 @@
     }
     setQrVisible(false);
     function proxyFromForm() {
+      var raw = document.getElementById('proxyIp').value.trim();
+      var parts = raw.split(/\s+/).filter(Boolean);
       return {
-        ProxyIp: document.getElementById('proxyIp').value.trim(),
-        ProxyUser: document.getElementById('proxyUser').value.trim(),
-        ProxyPassword: document.getElementById('proxyPass').value
+        ProxyIp: parts[0] || '',
+        ProxyUser: parts[1] || '',
+        ProxyPassword: parts.length > 2 ? parts.slice(2).join(' ') : ''
       };
     }
     function logLine(msg) {
