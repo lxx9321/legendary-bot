@@ -12,7 +12,6 @@ import (
 	"wechatdll/comm"
 	"wechatdll/models"
 	"wechatdll/models/Login"
-	"wechatdll/srv"
 	"wechatdll/srv/wxcore"
 
 	"github.com/bitly/go-simplejson"
@@ -313,6 +312,12 @@ func (c *LoginController) LoginCheckQR() {
 func (c *LoginController) LoginTwiceAutoAuth() {
 	wxid := c.GetString("wxid")
 	WXDATA, _ := Login.Secautoauth(wxid)
+	if WXDATA.Success {
+		hbResult := Login.EnsureAutoHeartBeat(wxid)
+		if !hbResult.Success {
+			WXDATA.Debug = hbResult.Message
+		}
+	}
 	c.Data["json"] = &WXDATA
 	c.ServeJSON()
 }
@@ -745,6 +750,12 @@ func (c *LoginController) LoginAwaken() {
 		return
 	}
 	WXDATA := Login.AwakenLoginNew(GetQR)
+	if WXDATA.Success && GetQR.Wxid != "" {
+		hbResult := Login.EnsureAutoHeartBeat(GetQR.Wxid)
+		if !hbResult.Success {
+			WXDATA.Debug = hbResult.Message
+		}
+	}
 	c.Data["json"] = &WXDATA
 	c.ServeJSON()
 }
@@ -891,50 +902,7 @@ func (c *LoginController) YPayVerificationcode() {
 // @router /AutoHeartBeat [post]
 func (c *LoginController) AutoHeartBeat() {
 	wxid := c.GetString("wxid")
-	// 开启自动心跳
-	D, err := comm.GetLoginata(wxid, nil)
-	if err != nil || D == nil || D.Wxid == "" {
-		errorMsg := fmt.Sprintf("系统异常：%v [%v]", "未找到登录信息", wxid)
-		if err != nil {
-			errorMsg = fmt.Sprintf("系统异常：%v", err.Error())
-		}
-		Result := models.ResponseResult{
-			Code:    -8,
-			Success: false,
-			Message: errorMsg,
-			Data:    nil,
-		}
-		c.Data["json"] = &Result
-		c.ServeJSON()
-		return
-	}
-
-	wxConnectMgr := wxcore.GetWXConnectMgr()
-	wXConnect := wxConnectMgr.GetWXConnectByWXID(wxid)
-	if wXConnect == nil {
-		wxAccount := srv.NewWXAccount(D)
-		wXConnect = wxcore.NewWXConnect(wxConnectMgr, wxAccount)
-		wxConnectMgr.Add(wXConnect)
-	}
-	wXConnect.Start()
-	err = wXConnect.SendHeartBeat()
-	if err != nil {
-		Result := models.ResponseResult{
-			Code:    -8,
-			Success: false,
-			Message: fmt.Sprintf("发送心跳失败：%v", err.Error()),
-			Data:    nil,
-		}
-		c.Data["json"] = &Result
-		c.ServeJSON()
-		return
-	}
-	Result := models.ResponseResult{
-		Code:    0,
-		Success: true,
-		Message: "发送心跳成功",
-		Data:    nil,
-	}
+	Result := Login.EnsureAutoHeartBeat(wxid)
 	c.Data["json"] = &Result
 	c.ServeJSON()
 }
@@ -967,6 +935,7 @@ func (c *LoginController) CloseAutoHeartBeat() {
 	if wXConnect != nil {
 		wXConnect.Stop()
 	}
+	Login.CloseAutoHeartBeat(wxid)
 	comm.AutoHeartBeatListClear(wxid)
 	Result := models.ResponseResult{
 		Code:    0,

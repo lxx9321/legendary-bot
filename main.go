@@ -11,6 +11,7 @@ import (
 	"strings"
 	"wechatdll/TcpPoll"
 	"wechatdll/comm"
+	loginModel "wechatdll/models/Login"
 	_ "wechatdll/routers"
 	"wechatdll/srv/wxcore"
 
@@ -96,6 +97,7 @@ func main() {
 
 	// 初始化自动心跳包
 	go wxcore.GetWXConnectMgr().InitAutoHeartBeat()
+	go loginModel.InitAutoSyncPolling()
 
 	// 初始化验证地址
 	comm.InitProxy("8888")
