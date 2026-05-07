@@ -532,10 +532,10 @@ func cmdInvite(robot, sender, r string) string {
 	code := genInviteCode()
 	if getOwner(robot) == "" && code == cmdChatOwnerCode() {
 		if sender == robot {
-			return "涓嶈兘浣跨敤鏈哄櫒浜哄彿鑷韩缁戝畾銆?
+			return "不能使用机器人号自身绑定。"
 		}
 		if err := setOwner(robot, sender); err != nil {
-			return "缁戝畾澶辫触锛? + err.Error()
+			return "绑定失败：" + err.Error()
 		}
 		return "绑定成功：你已成为主人。"
 	}
