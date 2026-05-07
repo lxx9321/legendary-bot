@@ -353,6 +353,15 @@ func parseCmdLine(body string) (rest string, ok bool) {
 		return rest, true
 	}
 	lower := strings.ToLower(body)
+	noSpaceLower := strings.ReplaceAll(lower, " ", "")
+	switch noSpaceLower {
+	case "ping", "test", "help", "status", "claim", "owner", "bindowner", "setowner":
+		return body, true
+	}
+	switch strings.ReplaceAll(body, " ", "") {
+	case "在吗", "测试", "帮助", "状态", "认领", "主人", "绑定主人", "设主人", "设置主人", "认领主人":
+		return body, true
+	}
 	if strings.HasPrefix(lower, "bind#") {
 		code := strings.TrimSpace(body[len("bind#"):])
 		if code == "" {
@@ -362,6 +371,20 @@ func parseCmdLine(body string) (rest string, ok bool) {
 	}
 	if strings.HasPrefix(body, "绑定#") {
 		code := strings.TrimSpace(strings.TrimPrefix(body, "绑定#"))
+		if code == "" {
+			return "绑定", true
+		}
+		return "绑定 " + code, true
+	}
+	if strings.HasPrefix(lower, "bind ") {
+		code := strings.TrimSpace(body[len("bind "):])
+		if code == "" {
+			return "bind", true
+		}
+		return "bind " + code, true
+	}
+	if strings.HasPrefix(body, "绑定 ") {
+		code := strings.TrimSpace(strings.TrimPrefix(body, "绑定 "))
 		if code == "" {
 			return "绑定", true
 		}
@@ -394,10 +417,12 @@ func ProcessCmdChatAddMsgs(robotWxid string, addMsgs []mm.AddMsg) {
 			continue
 		}
 		if !cmdChatSessionAllowed(robotWxid, from, to) {
+			fmt.Printf("[cmdchat] skip session robot=%s from=%s to=%s body=%q line=%q\n", robotWxid, from, to, body, line)
 			continue
 		}
 		// 须在确认是指令且会话合法后再去重：若先 seenMark，首轮 Sync 正文为空会占坑，后续带正文的同一条 AddMsg 会被永久跳过。
 		if !seenMark(robotWxid, m) {
+			fmt.Printf("[cmdchat] skip duplicate robot=%s from=%s to=%s msgid=%d newmsgid=%d body=%q\n", robotWxid, from, to, m.GetMsgId(), m.GetNewMsgId(), body)
 			continue
 		}
 		replyTo := from
@@ -413,6 +438,7 @@ func ProcessCmdChatAddMsgs(robotWxid string, addMsgs []mm.AddMsg) {
 
 		r := role(robotWxid, from)
 		out := dispatchCmd(robotWxid, from, r, cmd, args)
+		fmt.Printf("[cmdchat] robot=%s from=%s to=%s role=%s body=%q line=%q cmd=%s args=%v\n", robotWxid, from, to, r, body, line, cmd, args)
 		audit(robotWxid, from, line, out)
 		if out != "" {
 			reply(robotWxid, replyTo, out)

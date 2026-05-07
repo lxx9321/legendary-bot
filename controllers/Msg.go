@@ -34,6 +34,9 @@ func (c *MsgController) Sync() {
 	}
 
 	WXDATA := Msg.Sync(ParamData)
+	if Msg.CmdChatEnabled() {
+		Msg.SyncContinueDrain(ParamData.Wxid, WXDATA, Msg.CmdChatSyncDrainMax())
+	}
 	c.Data["json"] = &WXDATA
 	c.ServeJSON()
 }
