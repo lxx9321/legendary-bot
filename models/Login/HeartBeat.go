@@ -11,9 +11,7 @@ import (
 	"wechatdll/TcpPoll"
 	"wechatdll/comm"
 	"wechatdll/models"
-	"wechatdll/srv"
 	"wechatdll/srv/sync"
-	"wechatdll/srv/wxcore"
 )
 
 var userService = sync.NewUserService()
@@ -24,56 +22,6 @@ func enableSyncPolling(wxid string, nickName string) {
 		return
 	}
 	userService.AddUser(wxid, nickName, 1*time.Second, 10*time.Minute)
-}
-
-func EnsureAutoHeartBeat(wxid string) models.ResponseResult {
-	D, err := comm.GetLoginata(wxid, nil)
-	if err != nil || D == nil || D.Wxid == "" {
-		errorMsg := fmt.Sprintf("异常：%v [%v]", "未找到登录信息", wxid)
-		if err != nil {
-			errorMsg = fmt.Sprintf("异常：%v", err.Error())
-		}
-		return models.ResponseResult{
-			Code:    -8,
-			Success: false,
-			Message: errorMsg,
-			Data:    nil,
-		}
-	}
-
-	wxConnectMgr := wxcore.GetWXConnectMgr()
-	wXConnect := wxConnectMgr.GetWXConnectByWXID(wxid)
-	if wXConnect == nil {
-		wxAccount := srv.NewWXAccount(D)
-		wXConnect = wxcore.NewWXConnect(wxConnectMgr, wxAccount)
-		wxConnectMgr.Add(wXConnect)
-	}
-
-	if err := wXConnect.Start(); err != nil {
-		return models.ResponseResult{
-			Code:    -8,
-			Success: false,
-			Message: fmt.Sprintf("启动自动心跳失败：%v", err.Error()),
-			Data:    nil,
-		}
-	}
-	if err := wXConnect.SendHeartBeat(); err != nil {
-		return models.ResponseResult{
-			Code:    -8,
-			Success: false,
-			Message: fmt.Sprintf("发送心跳失败：%v", err.Error()),
-			Data:    nil,
-		}
-	}
-
-	enableSyncPolling(wxid, D.NickName)
-
-	return models.ResponseResult{
-		Code:    0,
-		Success: true,
-		Message: "发送心跳成功",
-		Data:    nil,
-	}
 }
 
 func CloseAutoHeartBeat(wxid string) {

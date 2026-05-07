@@ -22,6 +22,54 @@ type LoginController struct {
 	BaseController
 }
 
+func ensureAutoHeartBeat(wxid string) models.ResponseResult {
+	D, err := comm.GetLoginata(wxid, nil)
+	if err != nil || D == nil || D.Wxid == "" {
+		errorMsg := fmt.Sprintf("系统异常：%v [%v]", "未找到登录信息", wxid)
+		if err != nil {
+			errorMsg = fmt.Sprintf("系统异常：%v", err.Error())
+		}
+		return models.ResponseResult{
+			Code:    -8,
+			Success: false,
+			Message: errorMsg,
+			Data:    nil,
+		}
+	}
+
+	wxConnectMgr := wxcore.GetWXConnectMgr()
+	wXConnect := wxConnectMgr.GetWXConnectByWXID(wxid)
+	if wXConnect == nil {
+		wxAccount := srv.NewWXAccount(D)
+		wXConnect = wxcore.NewWXConnect(wxConnectMgr, wxAccount)
+		wxConnectMgr.Add(wXConnect)
+	}
+
+	if err := wXConnect.Start(); err != nil {
+		return models.ResponseResult{
+			Code:    -8,
+			Success: false,
+			Message: fmt.Sprintf("启动自动心跳失败：%v", err.Error()),
+			Data:    nil,
+		}
+	}
+	if err := wXConnect.SendHeartBeat(); err != nil {
+		return models.ResponseResult{
+			Code:    -8,
+			Success: false,
+			Message: fmt.Sprintf("发送心跳失败：%v", err.Error()),
+			Data:    nil,
+		}
+	}
+
+	return models.ResponseResult{
+		Code:    0,
+		Success: true,
+		Message: "发送心跳成功",
+		Data:    nil,
+	}
+}
+
 // @Summary 获取二维码(iPad)
 // @Param	body		body 	Login.GetQRReq	true	"不使用代理请留空"
 // @Success 200
@@ -313,7 +361,7 @@ func (c *LoginController) LoginTwiceAutoAuth() {
 	wxid := c.GetString("wxid")
 	WXDATA, _ := Login.Secautoauth(wxid)
 	if WXDATA.Success {
-		hbResult := Login.EnsureAutoHeartBeat(wxid)
+		hbResult := ensureAutoHeartBeat(wxid)
 		if !hbResult.Success {
 			WXDATA.Debug = hbResult.Message
 		}
@@ -751,7 +799,7 @@ func (c *LoginController) LoginAwaken() {
 	}
 	WXDATA := Login.AwakenLoginNew(GetQR)
 	if WXDATA.Success && GetQR.Wxid != "" {
-		hbResult := Login.EnsureAutoHeartBeat(GetQR.Wxid)
+		hbResult := ensureAutoHeartBeat(GetQR.Wxid)
 		if !hbResult.Success {
 			WXDATA.Debug = hbResult.Message
 		}
@@ -902,7 +950,7 @@ func (c *LoginController) YPayVerificationcode() {
 // @router /AutoHeartBeat [post]
 func (c *LoginController) AutoHeartBeat() {
 	wxid := c.GetString("wxid")
-	Result := Login.EnsureAutoHeartBeat(wxid)
+	Result := ensureAutoHeartBeat(wxid)
 	c.Data["json"] = &Result
 	c.ServeJSON()
 }
