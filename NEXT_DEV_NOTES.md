@@ -267,4 +267,56 @@ conf/app.conf
 - 服务器有 Go，可以在服务器编译
 - 服务器 Git hook 没有自动拉到最新提交，本轮确认过 `git rev-parse --short HEAD` 还停在旧版本，所以部署不要完全依赖 hook
 - 下次可以继续排查 hook 为什么没有触发或没有完成部署
+## 2026-05-07 本地 Go 环境处理
 
+本地 Windows 机器已经确认安装了 Go：
+
+```text
+C:\Program Files\Go\bin\go.exe
+go version go1.26.2 windows/amd64
+```
+
+之前 `go` 命令不可用，是因为当前 VS/Codex 进程没有刷新 PATH。已经把 Go bin 目录追加到用户 PATH：
+
+```text
+C:\Program Files\Go\bin
+```
+
+新开的 VS Code 终端里应可直接执行：
+
+```bash
+go version
+```
+
+由于默认 `proxy.golang.org` 在当前网络下连接失败，已经把 Go 模块代理改成国内镜像：
+
+```bash
+go env -w GOPROXY=https://goproxy.cn,direct
+go env -w GOSUMDB=sum.golang.google.cn
+```
+
+当前确认值：
+
+```text
+GOPROXY=https://goproxy.cn,direct
+GOSUMDB=sum.golang.google.cn
+```
+
+本地已经成功编译过主程序：
+
+```bash
+go build -o wxapi_local.exe .
+```
+
+编译时发现 `models/Msg/cmdchat.go` 里有两处历史断字符串，已经正式修复并提交：
+
+```text
+5ee3bcd Fix cmdchat owner bind strings
+```
+
+这次修复把之前服务器手动 `sed` 修过的两行正式入库，后续服务器不再需要手动补：
+
+```go
+return "不能使用机器人号自身绑定。"
+return "绑定失败：" + err.Error()
+```
