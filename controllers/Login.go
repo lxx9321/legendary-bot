@@ -12,6 +12,7 @@ import (
 	"wechatdll/comm"
 	"wechatdll/models"
 	"wechatdll/models/Login"
+	"wechatdll/srv"
 	"wechatdll/srv/wxcore"
 
 	"github.com/bitly/go-simplejson"
