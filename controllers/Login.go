@@ -350,6 +350,25 @@ func (c *LoginController) LoginGetQRMac() {
 func (c *LoginController) LoginCheckQR() {
 	uuid := c.GetString("uuid")
 	WXDATA := Login.CheckUuid(uuid)
+	if WXDATA.Success {
+		var wxid string
+		switch data := WXDATA.Data.(type) {
+		case *mm.UnifyAuthResponse:
+			if data != nil && data.GetAcctSectResp() != nil {
+				wxid = data.GetAcctSectResp().GetUserName()
+			}
+		case mm.UnifyAuthResponse:
+			if data.GetAcctSectResp() != nil {
+				wxid = data.GetAcctSectResp().GetUserName()
+			}
+		}
+		if wxid != "" {
+			hbResult := ensureAutoHeartBeat(wxid)
+			if !hbResult.Success {
+				WXDATA.Debug = hbResult.Message
+			}
+		}
+	}
 	c.Data["json"] = &WXDATA
 	c.ServeJSON()
 }
