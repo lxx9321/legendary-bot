@@ -5,14 +5,11 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
-	"strings"
 	"time"
 	"wechatdll/Cilent/mm"
 	"wechatdll/comm"
 	"wechatdll/srv"
 	"wechatdll/srv/wxface"
-
-	"github.com/astaxie/beego"
 )
 
 // WXConnect 微信链接
@@ -66,12 +63,6 @@ func (wxconn *WXConnect) startLongWriter() {
 			_ = wxconn.SendHeartBeat()
 			continue
 
-		case <-wxconn.RefreshTokenTimer.C:
-			if startTime != wxconn.startTime {
-				return
-			}
-			_ = wxconn.RefreshToken(0)
-			continue
 		case <-wxconn.ExitFlagChan:
 			return
 		}
@@ -155,26 +146,7 @@ func (wxconn *WXConnect) SendHeartBeat() error {
 		}
 	}
 
-	// 所有重试都失败了：Linux 长连下尝试二次登录 + 一次长连心跳救活，避免偶发断线直接掉线
-	if runtime.GOOS == "linux" && longlinkRecoverBeforeStop() {
-		fmt.Printf("[%s],[%s] 长连心跳连续失败，尝试二次登录后重拉长连...\n", userInfo.Wxid, userInfo.GetNickName())
-		_, _ = wxconn.wxModels.LoginSecautoauth(userInfo.Wxid)
-		time.Sleep(2 * time.Second)
-		_, br := wxconn.wxModels.LoginHeartBeatLong(userInfo.Wxid)
-		if br != nil && br.GetBaseResponse() != nil && br.GetBaseResponse().GetRet() == 0 {
-			NextTime := br.GetNextTime()
-			if NextTime < 100 {
-				NextTime = 175
-			}
-			timeStr := time.Now().Add(time.Duration(NextTime) * time.Second).Format("2006-01-02 15:04:05")
-			okmsg := fmt.Sprintf("[%s],[%s] 救活成功，下次刷新时间：%s", userInfo.Wxid, userInfo.GetNickName(), timeStr)
-			comm.AutoHeartBeatListAdd(userInfo.Wxid, okmsg)
-			fmt.Println(okmsg)
-			wxconn.SendHeartBeatWaitingSeconds(NextTime)
-			return nil
-		}
-	}
-
+	// 所有重试都失败后不再自动二次登录，交给前端手动接口处理。
 	timeStr := time.Now().Format("2006-01-02 15:04:05")
 	msg := fmt.Sprintf("[%s],[%s] 心跳多次失败，已停止连接，用户可能退出登录！ %s", userInfo.Wxid, userInfo.GetNickName(), timeStr)
 	comm.AutoHeartBeatListAdd(userInfo.Wxid, msg)
@@ -182,15 +154,6 @@ func (wxconn *WXConnect) SendHeartBeat() error {
 
 	wxconn.Stop()
 	return errors.New("心跳多次失败，已关闭连接，用户可能退出登录！")
-}
-
-// longlinkRecoverBeforeStop 未配置或 true 时，长连心跳彻底失败前尝试二次登录+重连。
-func longlinkRecoverBeforeStop() bool {
-	s := strings.ToLower(strings.TrimSpace(beego.AppConfig.String("longlink_recover_before_stop")))
-	if s == "0" || s == "false" || s == "off" || s == "no" {
-		return false
-	}
-	return true
 }
 
 // 发送二次登录
@@ -253,10 +216,9 @@ func longlinkRecoverBeforeStop() bool {
 //	}
 //
 
-// RefreshToken 发送二次登录请求，失败时重试指定次数，仍失败则等待一段时间后再尝试
+// RefreshToken 发送一次手动二次登录请求，失败时只在当前调用内短间隔重试。
 func (wxconn *WXConnect) RefreshToken(maxRetries int) error {
 	const retryInterval = 10 * time.Second // 每次重试间隔
-	const nextRetryTime = 60 * time.Minute // 多次失败后下次尝试时间（例如：1小时后）
 
 	timeNowStr := time.Now().Format("2006-01-02 15:04:05")
 	temUserInfo := wxconn.WxAccount.GetUserInfo()
@@ -267,28 +229,23 @@ func (wxconn *WXConnect) RefreshToken(maxRetries int) error {
 		msg := fmt.Sprintf("[%s],[%s] RefreshToken 获取用户信息失败 %s", temUserInfo.Wxid, temUserInfo.GetNickName(), timeNowStr)
 		fmt.Println(msg)
 		comm.AutoHeartBeatListAdd(temUserInfo.Wxid, msg)
-		// 设置一小时后再尝试
-		wxconn.SendRefreshTokenWaitingMinutes(uint32(nextRetryTime.Minutes()))
 		return errors.New("获取用户信息失败")
 	}
 
 	// 判断是否需要刷新 token
 	lastRefreshTokenTime := userInfo.RefreshTokenDate
 	if lastRefreshTokenTime+1800 > time.Now().Unix() {
-		Minutes := (lastRefreshTokenTime + 3600 - time.Now().Unix()) / 60
-		if Minutes <= 1 {
-			Minutes = 1
-		}
-		wxconn.SendRefreshTokenWaitingMinutes(uint32(Minutes))
-		timeStr := time.Now().Add(time.Minute * time.Duration(Minutes)).Format("2006-01-02 15:04:05")
-		msg := fmt.Sprintf("[%s],[%s] RefreshToken 自动二次登录已开启，下次刷新时间：%s", userInfo.Wxid, userInfo.GetNickName(), timeStr)
+		msg := fmt.Sprintf("[%s],[%s] RefreshToken 距离上次刷新不足 30 分钟，跳过本次手动二次登录", userInfo.Wxid, userInfo.GetNickName())
 		comm.AutoHeartBeatListAdd(userInfo.Wxid, msg)
 		fmt.Println(msg)
 		return nil
 	}
 
-	// 执行重试逻辑
-	for attempt := 1; attempt <= 2; attempt++ {
+	attempts := maxRetries
+	if attempts <= 0 {
+		attempts = 2
+	}
+	for attempt := 1; attempt <= attempts; attempt++ {
 		_, res := wxconn.wxModels.LoginSecautoauth(userInfo.Wxid)
 
 		if res == nil {
@@ -301,26 +258,23 @@ func (wxconn *WXConnect) RefreshToken(maxRetries int) error {
 			comm.AutoHeartBeatListAdd(userInfo.Wxid, msg)
 		} else {
 			// 成功
-			wxconn.SendRefreshTokenWaitingMinutes(60)
-			timeStr := time.Now().Add(time.Minute * 60).Format("2006-01-02 15:04:05")
-			msg := fmt.Sprintf("[%s],[%s] 二次登录成功，下次刷新时间：%s", userInfo.Wxid, userInfo.GetNickName(), timeStr)
+			msg := fmt.Sprintf("[%s],[%s] 手动二次登录成功", userInfo.Wxid, userInfo.GetNickName())
 			comm.AutoHeartBeatListAdd(userInfo.Wxid, msg)
 			fmt.Println(msg)
 			return nil
 		}
 
 		// 如果不是最后一次尝试，则等待一段时间再重试
-		if attempt < 2 {
+		if attempt < attempts {
 			time.Sleep(retryInterval)
 		}
 	}
 
-	// 所有重试都失败了 → 不关闭连接，设置一个较长时间后再次尝试
-	msg := fmt.Sprintf("[%s],[%s] 二次登录多次失败，不关闭连接，将在 %d 分钟后重新尝试", userInfo.Wxid, userInfo.GetNickName(), uint32(nextRetryTime.Minutes()))
+	// 所有重试都失败了，不关闭连接，交给前端手动处理。
+	msg := fmt.Sprintf("[%s],[%s] 手动二次登录多次失败，未关闭连接", userInfo.Wxid, userInfo.GetNickName())
 	fmt.Println(msg)
 	comm.AutoHeartBeatListAdd(userInfo.Wxid, msg)
 
-	wxconn.SendRefreshTokenWaitingMinutes(uint32(nextRetryTime.Minutes()))
 	return errors.New("二次登录多次失败，未关闭连接")
 }
 
@@ -342,10 +296,15 @@ func (wxconn *WXConnect) Start() error {
 	// 重置启动时间
 	wxconn.startTime = time.Now().Unix()
 	wxconn.HeartBeatTimer = time.NewTimer(time.Second * 175)
-	// 一个小时发送一次 刷新 token
+	// 保留刷新 token 定时器字段，但启动后立即关闭，避免自动二次登录。
 	wxconn.RefreshTokenTimer = time.NewTimer(time.Hour * 1)
+	if !wxconn.RefreshTokenTimer.Stop() {
+		select {
+		case <-wxconn.RefreshTokenTimer.C:
+		default:
+		}
+	}
 	wxconn.SendHeartBeatWaitingSeconds(175)
-	wxconn.SendRefreshTokenWaitingMinutes(1)
 	go wxconn.startLongWriter()
 	return nil
 }
@@ -363,7 +322,9 @@ func (wxconn *WXConnect) Stop() {
 	wxconn.wXConnectMgr.Remove(wxconn)
 	// 立即过期
 	wxconn.HeartBeatTimer.Reset(0)
-	wxconn.RefreshTokenTimer.Reset(0)
+	if wxconn.RefreshTokenTimer != nil {
+		wxconn.RefreshTokenTimer.Stop()
+	}
 	timeStr := time.Now().Format("2006-01-02 15:04:05")
 	fmt.Println(fmt.Sprintf("[%s],[%s] 退出！ %s", userInfo.Wxid, userInfo.GetNickName(), timeStr))
 }
@@ -373,7 +334,6 @@ func (wxconn *WXConnect) SendHeartBeatWaitingSeconds(seconds uint32) {
 	wxconn.HeartBeatTimer.Reset(time.Second * time.Duration(seconds))
 }
 
-// SendRefreshTokenWaitingMinutes 添加到微信刷新 token 队列(按分钟计算）
+// SendRefreshTokenWaitingMinutes 保留旧调用入口；当前不再安排自动二次登录。
 func (wxconn *WXConnect) SendRefreshTokenWaitingMinutes(minutes uint32) {
-	wxconn.RefreshTokenTimer.Reset(time.Minute * time.Duration(minutes))
 }

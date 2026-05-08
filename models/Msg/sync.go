@@ -59,6 +59,11 @@ func Sync(Data SyncParam) models.ResponseResult {
 	//	}
 	//}
 
+	deviceType := D.DeviceType
+	if deviceType == "" {
+		deviceType = "iPad"
+	}
+
 	req := &mm.NewSyncRequest{
 		Oplog: &mm.CmdList{
 			Count: proto.Uint32(0),
@@ -67,7 +72,7 @@ func Sync(Data SyncParam) models.ResponseResult {
 		Selector:      proto.Uint32(262151),
 		KeyBuf:        &Synckey,
 		Scene:         proto.Uint32(Data.Scene),
-		DeviceType:    proto.String("iPhone"),
+		DeviceType:    proto.String(deviceType),
 		SyncMsgDigest: proto.Uint32(3),
 	}
 

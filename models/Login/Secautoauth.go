@@ -70,11 +70,32 @@ func Secautoauth(Wxid string) (models.ResponseResult, *mm.UnifyAuthResponse) {
 	prikey, pubkey := Algorithm.GetEcdh713Key()
 
 	//基础设备信息
-	Imei := baseinfo.IOSImei(D.Deviceid_str)
-	SoftType := baseinfo.SoftType_iPad2(D.Deviceid_str)
+	hec := InitHec(D)
+	Imei := D.Imei
+	if Imei == "" {
+		if hec.IsAndroid {
+			Imei = D.GetDeviceInfoA16().AndriodImei(D.Deviceid_str)
+		} else {
+			Imei = baseinfo.IOSImei(D.Deviceid_str)
+		}
+	}
+	SoftType := D.SoftType
+	if SoftType == "" {
+		if hec.IsAndroid {
+			SoftType = D.GetDeviceInfoA16().AndriodGetSoftType(D.Deviceid_str)
+		} else {
+			SoftType = baseinfo.SoftType_iPad(D.Deviceid_str, D.OsVersion, D.RomModel)
+		}
+	}
+	authDeviceType := D.DeviceType
+	if authDeviceType == "" {
+		authDeviceType = hec.DeviceType
+	}
+	if authDeviceType == "" {
+		authDeviceType = Algorithm.IPadDeviceType
+	}
 	ClientSeqId := baseutils.GetClientSeqId(D.Deviceid_str)
 
-	hec := InitHec(D)
 	if hec.IsAndroid {
 		RrefreshTokenAndroid(D, httpclient)
 	} else {
@@ -169,10 +190,10 @@ func Secautoauth(Wxid string) (models.ResponseResult, *mm.UnifyAuthResponse) {
 			BuiltinIpseq: proto.Uint32(0),
 			ClientSeqId:  &ClientSeqId, //
 			//BundleId:     proto.String("com.tencent.xin"),
-			DeviceName: proto.String(D.DeviceName), //9
-			DeviceType: proto.String("iPad"),       //10
-			Language:   proto.String("zh_CN"),      //11
-			TimeZone:   proto.String("8.0"),        //12
+			DeviceName: proto.String(D.DeviceName),   //9
+			DeviceType: proto.String(authDeviceType), //10
+			Language:   proto.String("zh_CN"),        //11
+			TimeZone:   proto.String("8.0"),          //12
 
 			ExtSpamInfo: &mm.SKBuiltinBufferT{ //15
 				ILen:   proto.Uint32(uint32(len(WCExtInfoseq))),
