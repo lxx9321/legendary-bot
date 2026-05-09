@@ -282,6 +282,14 @@ func Exists(k string) bool {
 	return false
 }
 
+func TryConsumeLoginUUID(uuid string, ttlSeconds int64) (bool, error) {
+	key := "login_uuid_consumed:" + strings.TrimSpace(uuid)
+	if key == "login_uuid_consumed:" {
+		return false, errors.New("uuid is empty")
+	}
+	return RedisClient.SetNX(key, "1", time.Duration(ttlSeconds)*time.Second).Result()
+}
+
 func SETExpirationObj(k string, i interface{}, expiration int64) error {
 	// 清理首尾空格
 	k = strings.TrimSpace(k)

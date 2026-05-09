@@ -158,6 +158,23 @@ func CheckUuid(Uuid string) models.ResponseResult {
 
 			//扫码确认登录
 			if notifydataRsp.GetStatus() == 2 {
+				consumed, err := comm.TryConsumeLoginUUID(Uuid, 1800)
+				if err != nil {
+					return models.ResponseResult{
+						Code:    -8,
+						Success: false,
+						Message: fmt.Sprintf("系统异常: %v", err.Error()),
+						Data:    nil,
+					}
+				}
+				if !consumed {
+					return models.ResponseResult{
+						Code:    -8,
+						Success: false,
+						Message: "登录已完成，请停止轮询",
+						Data:    nil,
+					}
+				}
 				D.Wxid = notifydataRsp.GetUserName()
 				D.Pwd = notifydataRsp.GetPwd()
 				D.Cooike = ph1.Cookies
