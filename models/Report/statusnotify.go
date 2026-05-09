@@ -15,6 +15,10 @@ func Statusnotify(Wxid, ToWxid string) {
 	if err != nil {
 		return
 	}
+	if err := comm.ValidateCarSendProfile(Wxid, D); err != nil {
+		fmt.Printf("[statusnotify_guard] wxid=%s mismatch=%s\n", Wxid, err.Error())
+		return
+	}
 
 	req := &mm.StatusNotifyRequest{
 		BaseRequest: &mm.BaseRequest{
@@ -37,7 +41,7 @@ func Statusnotify(Wxid, ToWxid string) {
 		return
 	}
 
-	//发包
+	// 发包
 	_, _, _, err = comm.SendRequest(comm.SendPostData{
 		Ip:     D.Mmtlsip,
 		Host:   D.ShortHost,

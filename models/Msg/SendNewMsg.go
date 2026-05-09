@@ -30,14 +30,42 @@ func SendNewMsg(Data SendNewMsgParam) models.ResponseResult {
 			Data:    nil,
 		}
 	}
+	if err := comm.ValidateCarSendProfile(Data.Wxid, D); err != nil {
+		fmt.Printf("[send_guard] wxid=%s mismatch=%s\n", Data.Wxid, err.Error())
+		return models.ResponseResult{
+			Code:    -8,
+			Success: false,
+			Message: "发送前设备档案校验失败",
+			Data:    nil,
+		}
+	}
 
-	//提交个状态
+	// 提交状态通知
 	Report.Statusnotify(Data.Wxid, Data.ToWxid)
+
+	D, err = comm.GetLoginata(Data.Wxid, nil)
+	if err != nil {
+		return models.ResponseResult{
+			Code:    -8,
+			Success: false,
+			Message: fmt.Sprintf("异常：%v", err.Error()),
+			Data:    nil,
+		}
+	}
+	if err := comm.ValidateCarSendProfile(Data.Wxid, D); err != nil {
+		fmt.Printf("[send_guard] wxid=%s mismatch=%s\n", Data.Wxid, err.Error())
+		return models.ResponseResult{
+			Code:    -8,
+			Success: false,
+			Message: "发送前设备档案校验失败",
+			Data:    nil,
+		}
+	}
 
 	msgUtc := time.Now().Unix()
 	msgId := msgUtc - 107961031
 
-	//消息组包
+	// 消息组包
 	MsgRequest := &mm.NewSendMsgRequest{
 		Cnt: proto.Int32(1),
 		Info: &mm.ChatInfo{
@@ -52,17 +80,17 @@ func SendNewMsg(Data SendNewMsgParam) models.ResponseResult {
 		},
 	}
 
-	//群@
+	// 群@
 	if Data.At != "" {
 		MsgRequest.Info.MsgSource = proto.String("<msgsource><atuserlist>" + Data.At + "</atuserlist><bizflag>0</bizflag></msgsource>")
 	}
 
-	//序列化
+	// 序列化
 	reqdata, _ := proto.Marshal(MsgRequest)
 
 	//fmt.Println(hex.EncodeToString(reqdata))
 
-	//发包
+	// 发包
 	protobufdata, _, errtype, err := comm.SendRequest(comm.SendPostData{
 		Ip:     D.Mmtlsip,
 		Host:   D.ShortHost,
@@ -90,7 +118,7 @@ func SendNewMsg(Data SendNewMsgParam) models.ResponseResult {
 		}
 	}
 
-	//解包
+	// 解包
 	NewSendMsgRespone := mm.NewSendMsgRespone{}
 	err = proto.Unmarshal(protobufdata, &NewSendMsgRespone)
 	if err != nil {
