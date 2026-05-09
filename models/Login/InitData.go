@@ -540,24 +540,22 @@ func GenCarLoginData(request DataLogin) *comm.LoginData {
 		Imei:          baseinfo.IOSImei(deviceId),
 		OsVersion:     Algorithm.CarOsVersion,
 	}
-	D.SoftType = baseinfo.SoftType_iPad(D.Deviceid_str, D.OsVersion, D.RomModel)
-	D.DeviceInfo = createDeviceInfo(D)
+	D.SoftType = createCarSoftType(D.Deviceid_str, D.DeviceName, D.OsVersion, D.RomModel)
+	D.DeviceInfo = createCarDeviceInfo(D)
 	return D
 }
 
 func UpdateCarLoginData(D *comm.LoginData, Data DataLogin) *comm.LoginData {
-	if D.DeviceType == "" {
-		D.DeviceType = Algorithm.CarDeviceType
+	if D.Deviceid_str == "" || D.Deviceid_str == "string" {
+		D.Deviceid_str = Data.DeviceId
 	}
-	if D.ClientVersion == 0 {
-		D.ClientVersion = int32(Algorithm.CarVersion)
-	}
-	if D.DeviceName == "" || D.DeviceName == "string" {
-		if Data.DeviceName == "" || Data.DeviceName == "string" {
-			D.DeviceName = Algorithm.CarDeviceName
-		} else {
-			D.DeviceName = Data.DeviceName
-		}
+	D.Deviceid_byte, _ = hex.DecodeString(D.Deviceid_str)
+	D.DeviceType = Algorithm.CarDeviceType
+	D.ClientVersion = int32(Algorithm.CarVersion)
+	if Data.DeviceName == "" || Data.DeviceName == "string" {
+		D.DeviceName = Algorithm.CarDeviceName
+	} else {
+		D.DeviceName = Data.DeviceName
 	}
 	if D.ShortHost == "" {
 		D.ShortHost = Algorithm.MmtlsShortHost
@@ -565,21 +563,11 @@ func UpdateCarLoginData(D *comm.LoginData, Data DataLogin) *comm.LoginData {
 	if D.LongHost == "" {
 		D.LongHost = Algorithm.MmtlsLongHost
 	}
-	if D.RomModel == "" {
-		D.RomModel = Algorithm.CarModel
-	}
-	if D.Imei == "" {
-		D.Imei = baseinfo.IOSImei(D.Deviceid_str)
-	}
-	if D.SoftType == "" {
-		D.SoftType = baseinfo.SoftType_iPad(D.Deviceid_str, D.OsVersion, D.RomModel)
-	}
-	if D.OsVersion == "" {
-		D.OsVersion = Algorithm.CarOsVersion
-	}
-	if D.DeviceInfo == nil {
-		D.DeviceInfo = createDeviceInfo(D)
-	}
+	D.RomModel = Algorithm.CarModel
+	D.Imei = baseinfo.IOSImei(D.Deviceid_str)
+	D.OsVersion = Algorithm.CarOsVersion
+	D.SoftType = createCarSoftType(D.Deviceid_str, D.DeviceName, D.OsVersion, D.RomModel)
+	D.DeviceInfo = createCarDeviceInfo(D)
 	D.DeviceInfoA16 = nil
 	return D
 }
@@ -703,6 +691,40 @@ func createDeviceInfo(dbUserInfo *comm.LoginData) *baseinfo.DeviceInfo {
 	deviceInfo.Etchosts = GenEtchosts(SystemInstallTime)
 	deviceInfo.Apfs = GenApfsStat()
 	return deviceInfo
+}
+
+func createCarSoftType(deviceID string, deviceName string, osVersion string, romModel string) string {
+	uuid1, uuid2 := baseinfo.IOSUuid(deviceID)
+	wechatName := "\u5fae\u4fe1"
+	return fmt.Sprintf("<softtype><k3>%s</k3><k9>%s</k9><k10>6</k10><k19>%s</k19><k20>%s</k20><k22>(null)</k22><k33>%s</k33><k47>1</k47><k50>1</k50><k51>com.tencent.xin</k51><k54>%s</k54><k61>2</k61></softtype>", osVersion, deviceName, uuid1, uuid2, wechatName, romModel)
+}
+
+func createCarDeviceInfo(dbUserInfo *comm.LoginData) *baseinfo.DeviceInfo {
+	deviceInfo := createDeviceInfo(dbUserInfo)
+	deviceInfo.DeviceID = dbUserInfo.Deviceid_str
+	deviceInfo.Imei = dbUserInfo.Imei
+	deviceInfo.DeviceName = dbUserInfo.DeviceName
+	deviceInfo.DeviceBrand = carDeviceBrand(dbUserInfo.RomModel, dbUserInfo.DeviceName)
+	deviceInfo.IphoneVer = dbUserInfo.RomModel
+	deviceInfo.OsTypeNumber = dbUserInfo.OsVersion
+	deviceInfo.OsType = dbUserInfo.DeviceType
+	return deviceInfo
+}
+
+func carDeviceBrand(romModel string, deviceName string) string {
+	if romModel != "" {
+		parts := strings.SplitN(romModel, "-", 2)
+		if parts[0] != "" {
+			return parts[0]
+		}
+	}
+	if deviceName != "" {
+		parts := strings.SplitN(deviceName, "-", 2)
+		if parts[0] != "" {
+			return parts[0]
+		}
+	}
+	return "Car"
 }
 
 func createWinDeviceInfo(dbUserInfo *comm.WinLoginData) *baseinfo.DeviceInfo {
