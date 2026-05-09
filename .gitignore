@@ -2,3 +2,6 @@
 wxapi.exe
 /wxapi
 *.exe
+.specstory/
+.cursor/
+.idea/
