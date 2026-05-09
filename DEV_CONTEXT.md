@@ -255,3 +255,25 @@ Car 登录缓存内部字段已自洽，`DeviceInfo.deviceid/imei` 已与顶层 
 下一步目标是登录成功后保存：
 `last_device_profile:{callerId}:car -> wxid`
 然后下次 `LoginGetQRCar` 没传 DeviceID 时，通过 callerId 自动找到旧 wxid 并复用 Car 设备档案。
+
+
+## 最新进度：API Key / CallerID 链路已打通
+
+已完成：
+1. API Key 鉴权已启用。
+2. Redis API Key 白名单实际在 DB2。
+3. `apikeyenforce = true`
+4. `apikeysrediskey = wxapi:api:keys`
+5. `CallerID = sha256(apiKey)` 已能写入 Car 登录链路。
+6. 已验证：
+   - uuid 临时缓存中存在 CallerID
+   - wxid 持久缓存中也存在同一个 CallerID
+
+当前尚未完成：
+1. 还没有实现设备自动复用。
+2. 下一步目标是在登录成功后保存：
+   `last_device_profile:{CallerID}:car -> wxid`
+3. 再下一步才是在 `LoginGetQRCar` 取码前读取这个映射，自动复用旧 Car 设备档案。
+
+注意：
+当前只是打通 CallerID 传递链路，不要重新分析 DeviceInfo 回灌问题。
