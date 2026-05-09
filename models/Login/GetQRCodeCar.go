@@ -18,9 +18,6 @@ import (
 func GetQRCODECar(Data GetQRReq) models.ResponseResult2 {
 	D, _ := comm.GetLoginataByDevId(Data.DeviceID)
 	deviceName := Algorithm.CarDeviceName
-	if Data.DeviceName != "" && Data.DeviceName != "string" && Data.DeviceName != Algorithm.IPadDeviceName {
-		deviceName = Data.DeviceName
-	}
 	reqDataLogin := DataLogin{
 		UserName:   "",
 		Data62:     "",
