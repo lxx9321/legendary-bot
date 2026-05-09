@@ -60,6 +60,9 @@ func (m *WXModels) LoginHeartBeatLong(Wxid string) (models.ResponseResult, *mm.H
 			fmt.Printf("[LoginHeartBeatLong] wxid=%s 第 %d/%d 次重试（长连自动重连）...\n", Wxid, attempt, retries)
 		}
 		res, hr := m.loginHeartBeatLongOnce()
+		if !res.Success && strings.Contains(res.Message, "在线设备档案校验失败") {
+			return res, hr
+		}
 		if res.Success && hr != nil && hr.GetBaseResponse() != nil && hr.GetBaseResponse().GetRet() == 0 {
 			return res, hr
 		}
@@ -100,7 +103,18 @@ func (m *WXModels) loginHeartBeatLongOnce() (models.ResponseResult, *mm.HeartBea
 			Data:    nil,
 		}, nil
 	}
-	client, err := tcpManager.GetClient(userInfo, m.MsgListen)
+	if err := comm.ValidateCarOnlineProfile(userInfo.Wxid, D); err != nil {
+		fmt.Printf("[online_guard] wxid=%s mismatch=%s\n", userInfo.Wxid, err.Error())
+		comm.AutoHeartBeatListClear(userInfo.Wxid)
+		m.wxconn.Stop()
+		return models.ResponseResult{
+			Code:    -8,
+			Success: false,
+			Message: fmt.Sprintf("在线设备档案校验失败: %s", err.Error()),
+			Data:    nil,
+		}, nil
+	}
+	client, err := tcpManager.GetClient(D, m.MsgListen)
 	if err != nil {
 		return models.ResponseResult{
 			Code:    -8,
@@ -176,6 +190,19 @@ func (m *WXModels) LoginSecautoauth(Wxid string) (models.ResponseResult, *mm.Uni
 func (m *WXModels) MsgListen(cmdId int) error {
 	fmt.Println("接收到长链接消息，正在处理回调")
 	wxid := m.wxconn.GetWXAccount().GetUserInfo().Wxid
+	D, err := comm.GetLoginata(wxid, nil)
+	if err != nil || D == nil || D.Wxid == "" {
+		fmt.Printf("[online_guard] wxid=%s mismatch=Wxid\n", wxid)
+		comm.AutoHeartBeatListClear(wxid)
+		m.wxconn.Stop()
+		return nil
+	}
+	if err := comm.ValidateCarOnlineProfile(wxid, D); err != nil {
+		fmt.Printf("[online_guard] wxid=%s mismatch=%s\n", wxid, err.Error())
+		comm.AutoHeartBeatListClear(wxid)
+		m.wxconn.Stop()
+		return nil
+	}
 	msgpush, _ := beego.AppConfig.Bool("msgpush")
 	chatOn := Msg.CmdChatEnabled()
 	if msgpush {

@@ -119,6 +119,20 @@ func (wxconn *WXConnect) SendHeartBeat() error {
 			fmt.Sprintf("[%s] 正在第 %d 次重试发送心跳...", userInfo.Wxid, i)
 		}
 
+		D, err := comm.GetLoginata(userInfo.Wxid, nil)
+		if err != nil || D == nil || D.Wxid == "" {
+			fmt.Printf("[online_guard] wxid=%s mismatch=Wxid\n", userInfo.Wxid)
+			comm.AutoHeartBeatListClear(userInfo.Wxid)
+			wxconn.Stop()
+			return errors.New("在线设备档案校验失败")
+		}
+		if err := comm.ValidateCarOnlineProfile(userInfo.Wxid, D); err != nil {
+			fmt.Printf("[online_guard] wxid=%s mismatch=%s\n", userInfo.Wxid, err.Error())
+			comm.AutoHeartBeatListClear(userInfo.Wxid)
+			wxconn.Stop()
+			return errors.New("在线设备档案校验失败")
+		}
+
 		switch runtime.GOOS {
 		case "linux":
 			_, BaseRes = wxconn.wxModels.LoginHeartBeatLong(userInfo.Wxid)

@@ -43,6 +43,16 @@ func Sync(Data SyncParam) models.ResponseResult {
 			Data:    nil,
 		}
 	}
+	if err := comm.ValidateCarOnlineProfile(Data.Wxid, D); err != nil {
+		fmt.Printf("[online_guard] wxid=%s mismatch=%s\n", Data.Wxid, err.Error())
+		comm.AutoHeartBeatListClear(Data.Wxid)
+		return models.ResponseResult{
+			Code:    -8,
+			Success: false,
+			Message: "在线设备档案校验失败",
+			Data:    nil,
+		}
+	}
 
 	var Synckey mm.SKBuiltinBufferT
 

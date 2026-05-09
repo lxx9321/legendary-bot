@@ -36,6 +36,13 @@ func InitAutoSyncPolling() {
 		}
 		D, err := comm.GetLoginata(wxid, nil)
 		if err != nil || D == nil || D.Wxid == "" {
+			fmt.Printf("[online_guard] wxid=%s mismatch=Wxid\n", wxid)
+			comm.AutoHeartBeatListClear(wxid)
+			continue
+		}
+		if err := comm.ValidateCarOnlineProfile(wxid, D); err != nil {
+			fmt.Printf("[online_guard] wxid=%s mismatch=%s\n", wxid, err.Error())
+			comm.AutoHeartBeatListClear(wxid)
 			continue
 		}
 		enableSyncPolling(wxid, D.NickName)

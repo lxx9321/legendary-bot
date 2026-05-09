@@ -37,6 +37,20 @@ func ensureAutoHeartBeat(wxid string) models.ResponseResult {
 			Data:    nil,
 		}
 	}
+	if err := comm.ValidateCarOnlineProfile(wxid, D); err != nil {
+		fmt.Printf("[online_guard] wxid=%s mismatch=%s\n", wxid, err.Error())
+		comm.AutoHeartBeatListClear(wxid)
+		wxConnectMgr := wxcore.GetWXConnectMgr()
+		if wXConnect := wxConnectMgr.GetWXConnectByWXID(wxid); wXConnect != nil {
+			wXConnect.Stop()
+		}
+		return models.ResponseResult{
+			Code:    -8,
+			Success: false,
+			Message: "在线设备档案校验失败",
+			Data:    nil,
+		}
+	}
 
 	wxConnectMgr := wxcore.GetWXConnectMgr()
 	wXConnect := wxConnectMgr.GetWXConnectByWXID(wxid)
