@@ -175,8 +175,22 @@ func Sync(Data SyncParam) models.ResponseResult {
 		}
 
 		// 将新的SyncKey保存到数据库
-		D.SyncKey = NewSyncResponse.KeyBuf.Buffer
-		_ = comm.CreateLoginData(D, D.Wxid, 0, nil)
+		loginDataMu := comm.GetLoginLock(D.Wxid)
+		loginDataMu.Lock()
+		latestD, latestErr := comm.GetLoginata(D.Wxid, loginDataMu)
+		if latestErr != nil || latestD == nil || latestD.Wxid == "" {
+			if latestErr != nil {
+				fmt.Printf("[sync] skip SyncKey persist for wxid=%s: reload latest login data failed: %v\n", D.Wxid, latestErr)
+			} else {
+				fmt.Printf("[sync] skip SyncKey persist for wxid=%s: latest login data is empty\n", D.Wxid)
+			}
+		} else {
+			latestD.SyncKey = NewSyncResponse.KeyBuf.Buffer
+			if err := comm.CreateLoginData(latestD, latestD.Wxid, 0, loginDataMu); err != nil {
+				fmt.Printf("[sync] persist SyncKey failed for wxid=%s: %v\n", latestD.Wxid, err)
+			}
+		}
+		loginDataMu.Unlock()
 
 		if len(AddMsgs) > 0 {
 			robotID := D.Wxid
