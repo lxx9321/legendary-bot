@@ -277,3 +277,49 @@ Car 登录缓存内部字段已自洽，`DeviceInfo.deviceid/imei` 已与顶层 
 
 注意：
 当前只是打通 CallerID 传递链路，不要重新分析 DeviceInfo 回灌问题。
+
+## 最新进度：Car 设备档案后端自动复用已跑通
+
+已完成：
+1. `API Key -> CallerID` 链路已打通。
+2. 登录成功后已保存：
+   `last_device_profile:{CallerID}:car -> wxid`
+3. `LoginGetQRCar` 在前端不填写 `DeviceID` 时，已能通过 `CallerID` 找回上次 Car 登录的 `wxid`。
+4. 后端已能读取该 `wxid` 的持久缓存，并复用旧 `Deviceid_str`。
+5. 已验证：
+   - 旧缓存 `Deviceid_str`
+   - 新取码返回 `DeviceId`
+   二者一致。
+
+当前结果：
+Car 取码阶段已实现基于 API Key / CallerID 的后端自动设备复用，不再依赖前端手动填写 DeviceID。
+
+下一步：
+完成扫码登录后继续确认：
+- 登录成功后的 `Deviceid_str` 是否仍保持一致
+- `DeviceInfo.deviceid` 是否仍与顶层 `Deviceid_str` 同源
+- 手机端是否不再新增设备
+
+
+## 最新进度：Car 设备档案后端自动复用已验证成功
+
+已完成：
+1. `API Key -> CallerID` 链路已打通。
+2. 登录成功后已保存：
+   `last_device_profile:{CallerID}:car -> wxid`
+3. `LoginGetQRCar` 在前端不填写 `DeviceID` 时，已能通过 `CallerID` 找回上次 Car 登录的 `wxid`。
+4. 后端已能读取该 `wxid` 的持久缓存，并复用旧 Car 设备档案。
+5. 已验证：
+   - 新取码返回的 `DeviceId`
+   - 登录成功后的 `Deviceid_str`
+   - `DeviceInfo.deviceid`
+   三者完全一致。
+6. 手机端已验证为常用设备登录，没有新增设备。
+
+当前结论：
+Car 登录链路已经实现基于 API Key / CallerID 的后端自动设备复用，不再依赖前端手动填写 DeviceID。
+
+下一阶段再考虑：
+1. 账号转移 / 重新绑定功能。
+2. last_device_profile 映射失效时的清理逻辑。
+3. iPad / Mac / Windows 是否按同样模式扩展。
