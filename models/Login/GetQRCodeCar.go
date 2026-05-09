@@ -31,7 +31,10 @@ func GetQRCODECar(Data GetQRReq, callerID string) models.ResponseResult2 {
 		lastProfileKey := fmt.Sprintf("last_device_profile:%s:car", callerID)
 		wxid, err := comm.RedisClient.Get(lastProfileKey).Result()
 		if err == nil && wxid != "" {
-			if fallbackD, err := comm.GetLoginata(wxid, nil); err == nil && isReusableCarProfile(fallbackD) {
+			carProfileKey := fmt.Sprintf("device_profile:car:%s", wxid)
+			if fallbackD, err := comm.GetLoginata(carProfileKey, nil); err == nil && isReusableCarProfile(fallbackD) {
+				D = fallbackD
+			} else if fallbackD, err := comm.GetLoginata(wxid, nil); err == nil && isReusableCarProfile(fallbackD) {
 				D = fallbackD
 			}
 		}
