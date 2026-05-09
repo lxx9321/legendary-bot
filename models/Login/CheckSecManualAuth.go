@@ -89,6 +89,12 @@ func CheckSecManualAuth(Data *comm.LoginData, ShortHost string) models.ResponseR
 				Data:    nil,
 			}
 		}
+		if Data.CallerID != "" && Data.Wxid != "" && Data.DeviceType == Algorithm.CarDeviceType {
+			lastProfileKey := fmt.Sprintf("last_device_profile:%s:car", Data.CallerID)
+			if err := comm.RedisClient.Set(lastProfileKey, Data.Wxid, 0).Err(); err != nil {
+				fmt.Printf("save last_device_profile mapping failed: %v\n", err)
+			}
+		}
 		return models.ResponseResult{
 			Code:    0,
 			Success: true,
