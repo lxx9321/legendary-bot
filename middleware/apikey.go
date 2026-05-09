@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"strings"
 
@@ -54,6 +56,12 @@ func APIKeyGate(ctx *context.Context) {
 		writeAPIKeyDeny(ctx, "无效的 API Key")
 		return
 	}
+	ctx.Input.SetData("callerId", hashAPIKey(token))
+}
+
+func hashAPIKey(token string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(token)))
+	return hex.EncodeToString(sum[:])
 }
 
 func writeAPIKeyDeny(ctx *context.Context, msg string) {

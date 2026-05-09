@@ -300,6 +300,7 @@ func (c *LoginController) LoginGetQRWinUnified() {
 // @router /LoginGetQRCar [post]
 func (c *LoginController) LoginGetQRCar() {
 	var GetQR Login.GetQRReq
+	var callerID string
 	data := c.Ctx.Input.RequestBody
 	err := json.Unmarshal(data, &GetQR)
 	if err != nil {
@@ -313,7 +314,12 @@ func (c *LoginController) LoginGetQRCar() {
 		c.ServeJSON()
 		return
 	}
-	WXDATA := Login.GetQRCODECar(GetQR)
+	if callerData := c.Ctx.Input.GetData("callerId"); callerData != nil {
+		if value, ok := callerData.(string); ok {
+			callerID = value
+		}
+	}
+	WXDATA := Login.GetQRCODECar(GetQR, callerID)
 	c.Data["json"] = &WXDATA
 	c.ServeJSON()
 }

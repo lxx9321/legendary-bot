@@ -15,7 +15,7 @@ import (
 )
 
 // 获取二维码(Car)
-func GetQRCODECar(Data GetQRReq) models.ResponseResult2 {
+func GetQRCODECar(Data GetQRReq, callerID string) models.ResponseResult2 {
 	D, _ := comm.GetLoginataByDevId(Data.DeviceID)
 	deviceName := Algorithm.CarDeviceName
 	reqDataLogin := DataLogin{
@@ -33,6 +33,10 @@ func GetQRCODECar(Data GetQRReq) models.ResponseResult2 {
 	}
 
 	//初始化Mmtls
+	if callerID != "" {
+		D.CallerID = callerID
+	}
+
 	httpclient, MmtlsClient, err := comm.MmtlsInitialize(Data.Proxy, Algorithm.MmtlsShortHost)
 	if err != nil {
 		return models.ResponseResult2{
