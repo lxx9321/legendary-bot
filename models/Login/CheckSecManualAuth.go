@@ -25,12 +25,16 @@ func CheckSecManualAuth(Data *comm.LoginData, ShortHost string) models.ResponseR
 		Datas, err := comm.GetLoginata(Data.Wxid, nil)
 		if err != nil || Datas == nil || Datas.Uuid == "" {
 		} else if Datas.DeviceType == Data.DeviceType && Datas.ClientVersion == Data.ClientVersion {
-			Data.DeviceInfo = Datas.DeviceInfo
-			Data.RomModel = Datas.RomModel
-			Data.OsVersion = Datas.OsVersion
-			Data.ClientVersion = Datas.ClientVersion
-			Data.DeviceType = Datas.DeviceType
 			Data.DeviceToken = Datas.DeviceToken
+			if Data.DeviceType == Algorithm.CarDeviceType {
+				Data.DeviceInfo = createCarDeviceInfo(Data)
+			} else {
+				Data.DeviceInfo = Datas.DeviceInfo
+				Data.RomModel = Datas.RomModel
+				Data.OsVersion = Datas.OsVersion
+				Data.ClientVersion = Datas.ClientVersion
+				Data.DeviceType = Datas.DeviceType
+			}
 		}
 	}
 	jsonData, err := json.Marshal(Data)
