@@ -27,10 +27,14 @@ func ExtDeviceLoginConfirmGet(Data ExtDeviceLoginConfirmParam) models.ResponseRe
 	}
 
 	Url := strings.Replace(Data.Url, "https", "http", -1)
+	deviceName := D.DeviceName
+	if deviceName == "" {
+		deviceName = "iPhone"
+	}
 
 	req := &mm.ExtDeviceLoginConfirmGetRequest{
 		LoginUrl:   proto.String(Url),
-		DeviceName: proto.String("iPhone"),
+		DeviceName: proto.String(deviceName),
 	}
 
 	reqdata, err := proto.Marshal(req)
