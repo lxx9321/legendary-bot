@@ -224,3 +224,34 @@ GitHub 推送已成功。
 8. 在没有确认字段来源前直接改 `DeviceInfo`
 9. 把旧 iPad / Android 字段强行塞进 Car 档案
 10. 让内部请求自己临时生成新的 DeviceID
+
+补充发现：
+浏览器 Network 已确认，LoginGetQRCar 请求中即使前端 DeviceName 输入框清空，Payload 仍会带 DeviceName="iPad"。这会污染 Car 登录缓存。下一步需要修复 Car 接口不信任前端 DeviceName，并排查前端默认值来源。
+
+验证结果：
+修复 `CheckSecManualAuth.go` 后，Car 登录缓存中的 `DeviceInfo` 已不再回灌旧 iPad/Apple 数据。
+当前 `/login/GetCacheInfo` 显示：顶层 `Deviceid_str/Imei` 与 `DeviceInfo.deviceid/imei` 已同源，`DeviceInfo.devicename`、`devicebrand`、`ostype` 也与当前 Car 登录数据一致。
+
+剩余问题：
+尚未确认同账号同 Car 登录类型是否能稳定复用同一份 `Deviceid_str/Imei`。下一步需要重复执行 LoginGetQRCar 登录，对比两次缓存中的设备 ID 是否保持一致。
+
+最新验证：
+Car 登录缓存内部字段已自洽，`DeviceInfo.deviceid/imei` 已与顶层 `Deviceid_str/Imei` 同源，`DeviceInfo.devicename/devicebrand/ostype` 也已与 Car 登录数据一致。
+
+剩余问题：
+同账号再次使用 `LoginGetQRCar` 登录时，`Deviceid_str` 仍会变化，手机端显示为新设备。下一步需要分析 `LoginGetQRCar` 取码阶段是否每次重新生成 DeviceID，以及是否可以通过 `wxid + loginType=car` 复用旧设备档案。
+
+## API Key / callerId 传递验证
+
+已完成第一刀：API Key 鉴权通过后，后端会生成 `CallerID = sha256(apiKey)`，并写入 Car 登录链路。
+
+验证结果：
+- `uuid` 临时缓存中已出现 `CallerID`
+- 登录成功后的 `wxid` 持久缓存中也保留了同一个 `CallerID`
+- 说明 `API Key -> callerId -> uuid临时缓存 -> CheckUuid -> CheckSecManualAuth -> wxid持久缓存` 链路已打通
+
+注意：
+当前只是打通 callerId 传递，还没有实现设备自动复用。
+下一步目标是登录成功后保存：
+`last_device_profile:{callerId}:car -> wxid`
+然后下次 `LoginGetQRCar` 没传 DeviceID 时，通过 callerId 自动找到旧 wxid 并复用 Car 设备档案。
