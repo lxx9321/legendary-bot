@@ -3,6 +3,7 @@ package Login
 import (
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"time"
 	"wechatdll/Algorithm"
 	"wechatdll/clientsdk/baseutils"
@@ -16,7 +17,25 @@ import (
 
 // 获取二维码(Car)
 func GetQRCODECar(Data GetQRReq, callerID string) models.ResponseResult2 {
+	deviceID := strings.TrimSpace(Data.DeviceID)
+	isReusableCarProfile := func(loginData *comm.LoginData) bool {
+		return loginData != nil &&
+			loginData.Wxid != "" &&
+			loginData.Deviceid_str != "" &&
+			loginData.DeviceType == Algorithm.CarDeviceType &&
+			loginData.ClientVersion == Algorithm.CarVersion
+	}
+
 	D, _ := comm.GetLoginataByDevId(Data.DeviceID)
+	if !isReusableCarProfile(D) && (deviceID == "" || deviceID == "string") && callerID != "" {
+		lastProfileKey := fmt.Sprintf("last_device_profile:%s:car", callerID)
+		wxid, err := comm.RedisClient.Get(lastProfileKey).Result()
+		if err == nil && wxid != "" {
+			if fallbackD, err := comm.GetLoginata(wxid, nil); err == nil && isReusableCarProfile(fallbackD) {
+				D = fallbackD
+			}
+		}
+	}
 	deviceName := Algorithm.CarDeviceName
 	reqDataLogin := DataLogin{
 		UserName:   "",
@@ -25,7 +44,7 @@ func GetQRCODECar(Data GetQRReq, callerID string) models.ResponseResult2 {
 		DeviceId:   Data.DeviceID,
 		Proxy:      Data.Proxy,
 	}
-	if D == nil || D.Wxid == "" || D.ClientVersion != Algorithm.CarVersion {
+	if !isReusableCarProfile(D) {
 		// 没有缓存, 初始化新的账号环境
 		D = GenCarLoginData(reqDataLogin)
 	} else {
@@ -116,6 +135,9 @@ func GetQRCODECar(Data GetQRReq, callerID string) models.ResponseResult2 {
 		}
 
 		//保存redis
+		if callerID != "" {
+			D.CallerID = callerID
+		}
 		D.Uuid = getloginQRRes.GetUuid()
 		D.NotifyKey = getloginQRRes.GetNotifyKey().GetBuffer()
 		D.Cooike = ph1.Cookies
