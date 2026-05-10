@@ -360,3 +360,13 @@ login_uuid_consumed
 是否重复“登入数据”
 是否多个 TcpClient 快速握手
 ```
+当前结论
+
+Car 链路目前可以认为进入稳定阶段：
+
+Car 登录成功 ✅
+Car 独立档案保存 ✅
+同 API Key 二次取码复用 ✅
+前端轮询不误判 ✅
+后端 uuid consumed 生效 ✅
+心跳稳定 2 天 ✅
