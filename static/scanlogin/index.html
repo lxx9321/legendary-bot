@@ -516,6 +516,9 @@
       return em.string || em.String || '';
     }
     let pollTimer = null;
+    let polling = false;
+    let pollInFlight = false;
+    let pollGeneration = 0;
     let currentUuid = '';
     let data62SmsState = null;
     let data62QrState = null;
@@ -632,6 +635,180 @@
       once();
       pollTimer = setInterval(once, 3000);
       logLine('每 3s 轮询 LoginCheckQR');
+    };
+
+    function stopPolling(reason) {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+      const wasActive = polling || pollInFlight;
+      polling = false;
+      pollInFlight = false;
+      pollGeneration += 1;
+      if (reason && wasActive) logLine('已停止轮询: ' + reason);
+    }
+
+    function pollMessageIncludes(message, keywords) {
+      return keywords.some(function (keyword) {
+        return message.indexOf(keyword) >= 0;
+      });
+    }
+
+    function getPollTerminalReason(result, status, serverMsg) {
+      const message = String((result && result.Message) || '');
+      const combined = (message + ' ' + (serverMsg || '')).trim();
+      if (result && result.Success === true && result.Code === 0) return '登录成功';
+      if (status === 2) return '登录确认完成';
+      if (combined && pollMessageIncludes(combined, ['登录已完成', '请停止轮询', '已处理'])) return '后端已处理该二维码';
+      if (combined && pollMessageIncludes(combined, ['过期', '取消'])) return '二维码终态';
+      if (combined && pollMessageIncludes(combined, ['失败', '失效', '错误'])) return '轮询失败';
+      return '';
+    }
+
+    function startPolling(uuid) {
+      if (!uuid) {
+        logLine('请先获取二维码得到 UUID');
+        return;
+      }
+
+      stopPolling('restart');
+      currentUuid = uuid;
+      polling = true;
+      pollGeneration += 1;
+      const generation = pollGeneration;
+      const pollUuid = uuid;
+      const checkUrl = baseURL() + '/api/Login/LoginCheckQR?uuid=' + encodeURIComponent(pollUuid);
+
+      async function once() {
+        if (!polling || pollInFlight || generation !== pollGeneration || currentUuid !== pollUuid) return;
+        pollInFlight = true;
+        try {
+          const res = await fetch(checkUrl, {
+            method: 'POST',
+            headers: apiJsonHeaders(),
+            body: '{}'
+          });
+          const text = await res.text();
+          if (generation !== pollGeneration || currentUuid !== pollUuid) return;
+
+          let j;
+          try { j = JSON.parse(text); } catch (e) {
+            logLine('check 非 JSON: ' + text.slice(0, 300));
+            return;
+          }
+
+          logLine('Code=' + j.Code + ' Success=' + j.Success + ' ' + (j.Message || ''));
+          let status;
+          let serverMsg = '';
+          const data = j.Data;
+          if (data && typeof data === 'object') {
+            status = data.status ?? data.Status;
+            if (status !== undefined) logLine('  status=' + status + ' (2=已确认)');
+            const br = nestedBaseResponse(data);
+            if (br) {
+              const ret = br.ret ?? br.Ret;
+              serverMsg = baseResponseMessage(br);
+              if (ret !== undefined) logLine('  ret=' + ret);
+              if (serverMsg) logLine('  server: ' + serverMsg.slice(0, 260));
+              if (ret === -100 || serverMsg.indexOf('版本过低') >= 0) {
+                logLine('当前取码端点的客户端版本过低。请换 iPad/Pad/Win 端点，或更新该端点的协议版本参数。');
+                stopPolling('版本过低');
+                return;
+              }
+            }
+
+            const wx = data.UserName || data.userName || data.wxid || data.Wxid;
+            if (wx) {
+              logLine('  wxid: ' + wx);
+              var wxInp = document.getElementById('wxidForMaintain');
+              if (wxInp) wxInp.value = wx;
+            }
+          }
+
+          const terminalReason = getPollTerminalReason(j, status, serverMsg);
+          if (terminalReason) {
+            stopPolling(terminalReason);
+          }
+        } catch (e) {
+          logLine('轮询异常: ' + e);
+        } finally {
+          if (generation === pollGeneration) pollInFlight = false;
+        }
+      }
+
+      once();
+      if (!polling || generation !== pollGeneration) return;
+      pollTimer = setInterval(once, 3000);
+      logLine('已自动开始轮询 LoginCheckQR');
+    }
+
+    window.addEventListener('beforeunload', function () {
+      stopPolling('page unload');
+    });
+
+    document.getElementById('btnStop').onclick = function () {
+      stopPolling('manual stop');
+    };
+
+    document.getElementById('btnQr').onclick = async function () {
+      stopPolling('new qr');
+      document.getElementById('log').textContent = '';
+      const ep = document.getElementById('endpoint').value;
+      const body = {
+        Proxy: proxyFromForm(),
+        DeviceID: document.getElementById('deviceId').value.trim(),
+        DeviceName: document.getElementById('deviceName').value.trim() || 'iPad',
+        LoginType: ''
+      };
+      const url = baseURL() + '/api/Login/' + ep;
+      logLine('POST ' + url);
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: apiJsonHeaders(),
+          body: JSON.stringify(body)
+        });
+        const text = await res.text();
+        let j;
+        try { j = JSON.parse(text); } catch (e) {
+          logLine('非 JSON: ' + text.slice(0, 500));
+          return;
+        }
+        if (!j.Success || j.Code !== 1) {
+          logLine('取码失败 Code=' + j.Code + ' Message=' + (j.Message || ''));
+          logLine(text.slice(0, 800));
+          setQrVisible(false);
+          return;
+        }
+        const data = j.Data || {};
+        currentUuid = data.Uuid || data.uuid || '';
+        if (j.DeviceId) {
+          document.getElementById('deviceId').value = j.DeviceId;
+          logLine('已回填 DeviceId: ' + j.DeviceId);
+        }
+        document.getElementById('uuidLine').textContent = currentUuid ? ('UUID: ' + currentUuid) : '未返回 UUID';
+        const img = document.getElementById('qr');
+        if (data.QrBase64) {
+          img.src = data.QrBase64.indexOf('data:') === 0 ? data.QrBase64 : ('data:image/png;base64,' + data.QrBase64);
+          setQrVisible(true);
+        } else if (data.QrUrl) {
+          img.src = data.QrUrl;
+          setQrVisible(true);
+        } else {
+          setQrVisible(false);
+          logLine('未返回 QrBase64 / QrUrl');
+        }
+        logLine('取码成功，请扫码后等待自动轮询结果');
+        startPolling(currentUuid);
+      } catch (e) {
+        logLine('请求异常: ' + e);
+        setQrVisible(false);
+      }
+    };
+
+    document.getElementById('btnPoll').onclick = function () {
+      startPolling(currentUuid);
     };
 
     async function postLoginJson(path, bodyObj) {
