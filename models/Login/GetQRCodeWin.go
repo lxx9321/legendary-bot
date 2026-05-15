@@ -20,7 +20,7 @@ func GetQRCODEWin(Data GetQRReq) models.ResponseResult2 {
 	reqDataLogin := DataLogin{
 		UserName:   "",
 		Data62:     "",
-		DeviceName: Data.DeviceName,
+		DeviceName: Algorithm.WinDeviceName,
 		DeviceId:   Data.DeviceID,
 		Proxy:      Data.Proxy,
 	}
@@ -30,6 +30,7 @@ func GetQRCODEWin(Data GetQRReq) models.ResponseResult2 {
 	} else {
 		D = UpdateWinLoginData(D, reqDataLogin)
 	}
+	D = normalizeDesktopWinLoginData(D, reqDataLogin)
 
 	//初始化Mmtls
 	httpclient, MmtlsClient, err := comm.MmtlsInitialize(Data.Proxy, Algorithm.MmtlsShortHost)

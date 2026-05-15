@@ -429,6 +429,41 @@ func UpdateWinLoginData(D *comm.LoginData, Data DataLogin) *comm.LoginData {
 	return D
 }
 
+func normalizeDesktopWinLoginData(D *comm.LoginData, request DataLogin) *comm.LoginData {
+	if D == nil {
+		D = &comm.LoginData{}
+	}
+
+	deviceID := D.Deviceid_str
+	if deviceID == "" || deviceID == "string" {
+		deviceID = request.DeviceId
+	}
+	if deviceID == "" || deviceID == "string" {
+		deviceID = baseutils.CreateDeviceId("")
+	}
+
+	D.Deviceid_str = deviceID
+	D.Deviceid_byte, _ = hex.DecodeString(deviceID)
+	D.DeviceType = Algorithm.WinDeviceType
+	D.ClientVersion = Algorithm.WinVersion
+	D.DeviceName = Algorithm.WinDeviceName
+	D.RomModel = Algorithm.WinModel
+	D.OsVersion = Algorithm.WinOsVersion
+	D.Imei = baseinfo.IOSImei(deviceID)
+	D.SoftType = createDesktopWinSoftType(D.Deviceid_str, D.DeviceName, D.OsVersion, D.RomModel)
+	D.DeviceInfo = createDesktopWinDeviceInfo(D)
+	D.DeviceInfoA16 = nil
+
+	if D.ShortHost == "" {
+		D.ShortHost = Algorithm.MmtlsShortHost
+	}
+	if D.LongHost == "" {
+		D.LongHost = Algorithm.MmtlsLongHost
+	}
+
+	return D
+}
+
 /**
  *  Winunified 登录初始化数据
  */
@@ -725,6 +760,46 @@ func carDeviceBrand(romModel string, deviceName string) string {
 		}
 	}
 	return "Car"
+}
+
+func createDesktopWinSoftType(deviceID string, deviceName string, osVersion string, romModel string) string {
+	uuid1, uuid2 := baseinfo.IOSUuid(deviceID)
+	wechatName := "\u5fae\u4fe1"
+	return fmt.Sprintf("<softtype><k3>%s</k3><k9>%s</k9><k10>6</k10><k19>%s</k19><k20>%s</k20><k22>(null)</k22><k33>%s</k33><k47>1</k47><k50>1</k50><k51>com.tencent.xin</k51><k54>%s</k54><k61>2</k61></softtype>", osVersion, deviceName, uuid1, uuid2, wechatName, romModel)
+}
+
+func createDesktopWinDeviceInfo(dbUserInfo *comm.LoginData) *baseinfo.DeviceInfo {
+	deviceInfo := &baseinfo.DeviceInfo{}
+	deviceInfo.UUIDOne = baseutils.RandomUUID()
+	deviceInfo.UUIDTwo = ""
+	deviceInfo.DeviceID = dbUserInfo.Deviceid_str
+	deviceInfo.Imei = dbUserInfo.Imei
+	deviceInfo.DeviceName = dbUserInfo.DeviceName
+	deviceInfo.TimeZone = "8.00"
+	deviceInfo.Language = "zh_CN"
+	deviceInfo.DeviceBrand = Algorithm.WinModel
+	deviceInfo.RealCountry = "CN"
+	deviceInfo.IphoneVer = dbUserInfo.RomModel
+	deviceInfo.BundleID = "com.tencent.xin"
+	deviceInfo.OsTypeNumber = dbUserInfo.OsVersion
+	deviceInfo.OsType = dbUserInfo.DeviceType
+	deviceInfo.CoreCount = 3
+	deviceInfo.CarrierName = "中国电信"
+	deviceInfo.ClientCheckDataXML = ""
+	deviceInfo.GUID1 = guuid.New().String()
+	deviceInfo.GUID2 = guuid.New().String()
+	deviceInfo.Sdi = baseutils.Md5Value(guuid.New().String())
+
+	systemInstallTime := uint64(baseutils.GetRandomTimeInPastHalfYear().Unix())
+	deviceInfo.InstallTime = uint64(baseutils.GetRandomTimeInPast5m().Unix())
+	deviceInfo.KernBootTime = uint64(baseutils.GetRandomTimeInPastWeek().Unix())
+	deviceInfo.Sysverplist = GenSysverplist(systemInstallTime)
+	deviceInfo.Dyldcache = GenDyldcache(systemInstallTime)
+	deviceInfo.Var = GenVar(systemInstallTime)
+	deviceInfo.Etcgroup = GenEtcgroup(systemInstallTime)
+	deviceInfo.Etchosts = GenEtchosts(systemInstallTime)
+	deviceInfo.Apfs = GenApfsStat()
+	return deviceInfo
 }
 
 func createWinDeviceInfo(dbUserInfo *comm.WinLoginData) *baseinfo.DeviceInfo {
