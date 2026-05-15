@@ -370,3 +370,29 @@ Car 独立档案保存 ✅
 前端轮询不误判 ✅
 后端 uuid consumed 生效 ✅
 心跳稳定 2 天 ✅
+
+
+---
+
+# 2026-05-10 补充：普通 Win 第一刀完成，取码阶段设备字段归一化通过
+
+## 本次完成内容
+
+### 1. 明确 Win 主线选择
+
+经过只读审计后确认：
+
+- 如果目标是“像 Car 一样做设备档案复用”，第一刀应选择普通 `LoginGetQRWin`
+- `LoginGetQRWin` 和 Car 链路最像：
+  - 使用 `comm.LoginData`
+  - 使用 `GetLoginataByDevId`
+  - 使用 `CreateLoginData` 写临时 uuid 缓存
+  - 后续自然进入 `CheckUuid`
+  - 登录成功后自然进入 `CheckSecManualAuth`
+- `LoginGetQRWinUnified` 虽然像“最新 PC 版”，但取码阶段使用 `comm.WinLoginData`，后续又回到 `comm.LoginData`，属于结构混用链路，不作为第一刀目标
+- `LoginGetQRWinUwp` 也像 Car，但属于 UWP 特殊分支，不作为第一刀基线
+
+最终选择：
+
+```text
+第一阶段 Win 主线：LoginGetQRWin
